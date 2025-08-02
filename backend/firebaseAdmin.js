@@ -1,20 +1,20 @@
-// firebaseAdmin.js
+// backend/firebaseAdmin.js
 
 import admin from "firebase-admin";
 import dotenv from "dotenv";
 dotenv.config();
 
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// 🔽 base64 文字列を JSON にデコード
+const serviceAccount = JSON.parse(
+  Buffer.from(
+    process.env.FIREBASE_SERVICE_ACCOUNT_KEY_BASE64,
+    "base64"
+  ).toString("utf-8")
+);
 
 // Firebase Admin 初期化
 admin.initializeApp({
-  credential: admin.credential.cert(
-    JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY_JSON)
-  ),
+  credential: admin.credential.cert(serviceAccount),
 });
 
 export default admin;

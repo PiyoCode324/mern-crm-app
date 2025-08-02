@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { auth } from "../firebase/config";
 import { createUserWithEmailAndPassword, getAuth } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../utils/api";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -39,8 +39,8 @@ export default function Register() {
 
       const idToken = await user.getIdToken();
 
-      const res = await axios.post(
-        "/api/users/register", // ← proxy 経由で呼び出せる
+      const res = await api.post(
+        "/api/users/register",
         {},
         {
           headers: {

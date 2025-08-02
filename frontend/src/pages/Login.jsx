@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase/config";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -52,6 +52,12 @@ export default function Login() {
         >
           ログイン
         </button>
+        <p className="mt-4">
+          アカウントをお持ちでない方は{" "}
+          <Link to="/register" className="text-blue-600 underline">
+            新規登録
+          </Link>
+        </p>
       </form>
     </div>
   );

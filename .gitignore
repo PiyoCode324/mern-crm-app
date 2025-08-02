@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.env
+firebaseServiceAccountKey.json
+
+MEMO.md
+スケジュール.md

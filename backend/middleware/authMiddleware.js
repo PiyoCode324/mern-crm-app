@@ -1,17 +1,10 @@
 // middleware/authMiddleware.js
 
-const admin = require("firebase-admin");
-const serviceAccount = require("../firebaseServiceAccountKey.json");
-
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-}
+const admin = require("../firebaseAdmin");
 
 const verifyFirebaseToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "未認証：トークンがありません" });
   }
 

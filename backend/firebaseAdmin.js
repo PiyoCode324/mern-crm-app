@@ -1,10 +1,9 @@
 // backend/firebaseAdmin.js
 
-import admin from "firebase-admin";
-import dotenv from "dotenv";
-dotenv.config();
+const admin = require("firebase-admin");
+require("dotenv").config();
 
-// 🔽 base64 文字列を JSON にデコード
+// base64文字列をJSONに変換
 const serviceAccount = JSON.parse(
   Buffer.from(
     process.env.FIREBASE_SERVICE_ACCOUNT_KEY_BASE64,
@@ -12,9 +11,11 @@ const serviceAccount = JSON.parse(
   ).toString("utf-8")
 );
 
-// Firebase Admin 初期化
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+// Firebase Admin 初期化（多重初期化防止）
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+}
 
-export default admin;
+module.exports = admin;

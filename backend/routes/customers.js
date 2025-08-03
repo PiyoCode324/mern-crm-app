@@ -8,12 +8,12 @@ const Customer = require("../models/Customer");
 // 🔐 認証ミドルウェアをすべてのルートに適用
 router.use(verifyFirebaseToken);
 
-// 📄 顧客一覧を取得（ログインユーザーのIDでフィルタ）
+// 📄 顧客一覧取得（ログインユーザーの顧客のみ）
 router.get("/", async (req, res) => {
   try {
     const customers = await Customer.find({
       assignedUserId: req.user.uid,
-    });
+    }).sort({ createdAt: -1 });
     res.json(customers);
   } catch (err) {
     console.error("❌ 顧客取得エラー:", err);
@@ -24,7 +24,7 @@ router.get("/", async (req, res) => {
 // ➕ 顧客を新規追加
 router.post("/", async (req, res) => {
   try {
-    const { name, industry, contact } = req.body;
+    const { name, companyName, email, phone, status, contactMemo } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: "顧客名は必須です" });
@@ -32,8 +32,11 @@ router.post("/", async (req, res) => {
 
     const newCustomer = new Customer({
       name,
-      industry,
-      contact,
+      companyName,
+      email,
+      phone,
+      status: status || "見込み",
+      contactMemo,
       assignedUserId: req.user.uid,
     });
 
@@ -48,24 +51,27 @@ router.post("/", async (req, res) => {
 // ✏️ 顧客情報を更新（PUT /customers/:id）
 router.put("/:id", async (req, res) => {
   try {
-    const { name, industry, contact } = req.body;
+    const { name, companyName, email, phone, status, contactMemo } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: "顧客名は必須です" });
     }
 
-    // 所有権もチェック（assignedUserId が現在ユーザーと一致するか）
     const customer = await Customer.findById(req.params.id);
     if (!customer) {
       return res.status(404).json({ error: "顧客が見つかりません" });
     }
+
     if (customer.assignedUserId !== req.user.uid) {
       return res.status(403).json({ error: "権限がありません" });
     }
 
     customer.name = name;
-    customer.industry = industry || "";
-    customer.contact = contact || "";
+    customer.companyName = companyName || "";
+    customer.email = email || "";
+    customer.phone = phone || "";
+    customer.status = status || "見込み";
+    customer.contactMemo = contactMemo || "";
 
     const updatedCustomer = await customer.save();
     res.json(updatedCustomer);

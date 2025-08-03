@@ -1,4 +1,3 @@
-// backend/models/Customer.js
 const mongoose = require("mongoose");
 
 const customerSchema = new mongoose.Schema(
@@ -8,17 +7,32 @@ const customerSchema = new mongoose.Schema(
       required: [true, "顧客名は必須です"],
       trim: true,
     },
-    industry: {
+    companyName: {
       type: String,
       trim: true,
       default: "",
     },
-    contact: {
+    email: {
       type: String,
       trim: true,
       default: "",
+    },
+    phone: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    status: {
+      type: String,
+      enum: ["見込み", "提案中", "契約済", "失注"],
+      default: "見込み",
     },
     assignedUserId: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    contactMemo: {
       type: String,
       trim: true,
       default: "",

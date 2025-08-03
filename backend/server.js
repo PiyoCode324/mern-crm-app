@@ -8,6 +8,8 @@ const mongoose = require("mongoose");
 const { verifyFirebaseToken } = require("./middleware/authMiddleware");
 const customersRouter = require("./routes/customers");
 const usersRouter = require("./routes/users");
+const salesRoutes = require("./routes/sales");
+const contactRoutes = require("./routes/contactRoutes");
 
 dotenv.config();
 
@@ -19,6 +21,8 @@ app.use(express.json());
 
 app.use("/api/customers", customersRouter);
 app.use("/api/users", usersRouter);
+app.use("/api/sales", salesRoutes);
+app.use("/api/contacts", contactRoutes);
 
 // MongoDB 接続
 const connectDB = async () => {

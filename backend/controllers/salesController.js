@@ -1,6 +1,6 @@
 // backend/controllers/salesController.js
 
-const Sales = require("../models/sales"); // models/sales.jsのモデルを正しく参照
+const Sales = require("../models/Sales"); // models/sales.jsのモデルを正しく参照
 
 // 売上データ登録
 exports.createSale = async (req, res) => {

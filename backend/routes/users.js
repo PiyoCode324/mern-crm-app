@@ -2,36 +2,27 @@
 
 const express = require("express");
 const router = express.Router();
-const User = require("../models/User");
 const { verifyFirebaseToken } = require("../middleware/authMiddleware");
+const {
+  registerUser,
+  getUser,
+  updateUser,
+  deleteUser,
+} = require("../controllers/userController");
 
-// 認証済みユーザーのみ許可
+// Firebase認証が必要
 router.use(verifyFirebaseToken);
 
-router.post("/register", async (req, res) => {
-  try {
-    // req.body ではなく、認証情報から uid と email を取得
-    const { uid, email } = req.user;
+// 🔹 初回登録（MongoDBにユーザー登録）
+router.post("/register", registerUser);
 
-    if (!uid || !email) {
-      return res.status(400).json({ message: "uidとemailは必須です" });
-    }
+// 🔸 現在のユーザー情報取得
+router.get("/me", getUser);
 
-    // すでに存在するかチェック
-    const existingUser = await User.findOne({ uid });
-    if (existingUser) {
-      return res.status(400).json({ message: "ユーザーはすでに存在します" });
-    }
+// 🔸 現在のユーザー情報更新
+router.put("/me", updateUser);
 
-    // 新規ユーザー作成
-    const newUser = new User({ uid, email });
-    await newUser.save();
-
-    return res.status(201).json({ message: "ユーザー作成完了", user: newUser });
-  } catch (err) {
-    console.error("❌ ユーザー登録エラー:", err);
-    return res.status(500).json({ message: "サーバーエラー" });
-  }
-});
+// 🔸 現在のユーザー削除
+router.delete("/me", deleteUser);
 
 module.exports = router;

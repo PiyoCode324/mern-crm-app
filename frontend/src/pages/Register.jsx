@@ -9,6 +9,7 @@ import api from "../utils/api";
 export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState(""); // 表示名も受け取る場合
   const [errorMsg, setErrorMsg] = useState("");
   const navigate = useNavigate();
 
@@ -19,17 +20,17 @@ export default function Register() {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
 
-      // 🔥 Firebase登録後にMongoDBにも登録
+      // Firebase登録後にMongoDBにも登録
       await registerUserInBackend();
 
-      // 登録成功したらログイン状態になるので、ダッシュボードへ遷移
-      navigate("/dashboard");
+      // 登録成功後、ダッシュボードへ遷移
+      navigate("/login");
     } catch (error) {
       setErrorMsg(error.message);
     }
   };
 
-  // 🔽 MongoDB にユーザー登録
+  // MongoDBにユーザー登録
   const registerUserInBackend = async () => {
     try {
       const auth = getAuth();
@@ -40,8 +41,8 @@ export default function Register() {
       const idToken = await user.getIdToken();
 
       const res = await api.post(
-        "/api/users/register",
-        {},
+        "/users/register",
+        { displayName }, // 表示名を送信
         {
           headers: {
             Authorization: `Bearer ${idToken}`,
@@ -69,6 +70,17 @@ export default function Register() {
             className="mt-1 p-2 border rounded w-full"
           />
         </label>
+
+        <label className="block mb-2">
+          表示名（任意）
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className="mt-1 p-2 border rounded w-full"
+          />
+        </label>
+
         <label className="block mb-4">
           パスワード
           <input
@@ -79,7 +91,9 @@ export default function Register() {
             className="mt-1 p-2 border rounded w-full"
           />
         </label>
+
         {errorMsg && <p className="text-red-600 mb-4">{errorMsg}</p>}
+
         <button
           type="submit"
           className="bg-blue-600 text-white py-2 rounded hover:bg-blue-700 w-full"

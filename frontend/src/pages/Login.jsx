@@ -15,10 +15,26 @@ export default function Login() {
     setError("");
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      // ログインを実行し、ユーザー情報を取得
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
+
+      // ★★★ ログイン成功後、FirebaseのIDトークンを取得 ★★★
+      const token = await user.getIdToken();
+
+      // ★★★ IDトークンをlocalStorageに保存 ★★★
+      localStorage.setItem("token", token);
+
+      // ログイン成功後はDashboardへ遷移
       navigate("/dashboard");
     } catch (err) {
       setError("ログインに失敗しました");
+      // エラーメッセージをより詳細に表示することも可能
+      // console.error(err);
     }
   };
 

@@ -4,26 +4,37 @@ const mongoose = require("mongoose");
 
 const contactSchema = new mongoose.Schema(
   {
-    name: {
+    customerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      required: [true, "顧客IDは必須です"],
+    },
+    contactDate: {
+      type: Date,
+      required: [true, "連絡日を入力してください"],
+      default: Date.now,
+    },
+    content: {
       type: String,
-      required: [true, "名前は必須です"],
+      required: [true, "内容を入力してください"],
       trim: true,
     },
-    email: {
+    responseStatus: {
       type: String,
-      required: [true, "メールアドレスは必須です"],
-      trim: true,
-      lowercase: true,
-      match: [/.+@.+\..+/, "有効なメールアドレスを入力してください"],
+      enum: ["未対応", "対応中", "対応済み"],
+      default: "未対応",
     },
-    message: {
+    memo: {
       type: String,
-      required: [true, "メッセージは必須です"],
       trim: true,
+    },
+    assignedUserId: {
+      type: String, // Firebase UIDは文字列なのでString型に変更
+      default: null,
     },
   },
   {
-    timestamps: true, // createdAtとupdatedAtを自動生成
+    timestamps: true,
   }
 );
 

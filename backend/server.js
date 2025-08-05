@@ -17,7 +17,12 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+// JSONパーサーを使うが、DELETEメソッドの空ボディでのパースエラーを防ぐためにエラーハンドリングを追加
+app.use(
+  express.json({
+    strict: false, // 厳密なJSONチェックをオフにする（空文字列も許容）
+  })
+);
 
 app.use("/api/customers", customersRouter);
 app.use("/api/users", usersRouter);

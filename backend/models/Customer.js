@@ -1,3 +1,5 @@
+// backend/models/Customer.js
+
 const mongoose = require("mongoose");
 
 const customerSchema = new mongoose.Schema(
@@ -28,9 +30,8 @@ const customerSchema = new mongoose.Schema(
       default: "見込み",
     },
     assignedUserId: {
-      type: String,
-      trim: true,
-      default: "",
+      type: String, // Firebase UIDの文字列として保持
+      default: null,
     },
     contactMemo: {
       type: String,

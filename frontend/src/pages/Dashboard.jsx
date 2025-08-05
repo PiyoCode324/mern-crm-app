@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
 import Modal from "../components/Modal";
+import { Link } from "react-router-dom";
 
 const Dashboard = () => {
   const { user, token } = useAuth();
@@ -25,7 +26,7 @@ const Dashboard = () => {
     }
     try {
       // authorizedRequestはデータそのものを直接返すので、res.dataではなくresを使用
-      const res = await authorizedRequest("GET", "/api/sales", token);
+      const res = await authorizedRequest("GET", "/sales", token);
       if (Array.isArray(res)) {
         setSales(res);
       } else {
@@ -72,13 +73,13 @@ const Dashboard = () => {
       if (editingId) {
         await authorizedRequest(
           "PUT",
-          `/api/sales/${editingId}`,
+          `/sales/${editingId}`,
           token,
           requestData
         );
         setEditingId(null);
       } else {
-        await authorizedRequest("POST", "/api/sales", token, requestData);
+        await authorizedRequest("POST", "/sales", token, requestData);
       }
       setForm({ productName: "", unitPrice: "", quantity: "", saleDate: "" });
       fetchSales();
@@ -130,7 +131,7 @@ const Dashboard = () => {
       return;
     }
     try {
-      await authorizedRequest("DELETE", `/api/sales/${id}`, token);
+      await authorizedRequest("DELETE", `/sales/${id}`, token);
       fetchSales();
     } catch (err) {
       console.error("削除エラー:", err);
@@ -144,9 +145,45 @@ const Dashboard = () => {
     }
   };
 
+  const [profile, setProfile] = useState(null);
+
+  const fetchProfile = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await authorizedRequest("GET", "/users/me", token);
+      setProfile(res.user);
+    } catch (err) {
+      console.error("プロフィール取得失敗:", err);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
   return (
     <div className="p-4 bg-gray-50 min-h-screen font-sans">
       {showModal && <Modal {...modalConfig} />}
+      {profile && (
+        <div className="mb-6 p-4 bg-white rounded-lg shadow-sm flex justify-between items-center">
+          <div>
+            <p className="text-gray-600">
+              ログインユーザー:{" "}
+              <span className="font-medium">
+                {profile.displayName || "名前未設定"}
+              </span>
+            </p>
+            <p className="text-gray-500 text-sm">{profile.email}</p>
+          </div>
+          <Link
+            to="/profile"
+            className="text-blue-600 hover:underline font-medium text-sm"
+          >
+            プロフィールを編集
+          </Link>
+        </div>
+      )}
+
       <h1 className="text-3xl font-bold text-gray-800 mb-6">
         売上管理ダッシュボード
       </h1>

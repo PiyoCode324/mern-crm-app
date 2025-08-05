@@ -1,4 +1,4 @@
-// backend/models/sales.js
+// backend/models/Sales.js
 
 const mongoose = require("mongoose");
 

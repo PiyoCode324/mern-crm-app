@@ -3,12 +3,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
 import CustomerForm from "./CustomerForm";
+import { Link } from "react-router-dom";
 
 const CustomerList = () => {
   const { user, token } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [error, setError] = useState(null);
-  const [editingCustomer, setEditingCustomer] = useState(null); // 編集対象
+  const [editingCustomer, setEditingCustomer] = useState(null);
 
   const fetchCustomers = useCallback(async () => {
     if (!user || !token) {
@@ -36,13 +37,12 @@ const CustomerList = () => {
     fetchCustomers();
   }, [fetchCustomers]);
 
-  // 🗑️ 顧客削除
   const handleDelete = async (customerId) => {
     if (!window.confirm("この顧客を削除してもよろしいですか？")) return;
 
     try {
       await authorizedRequest("DELETE", `/api/customers/${customerId}`, token);
-      fetchCustomers(); // 更新
+      fetchCustomers();
     } catch (err) {
       console.error("削除失敗:", err);
       setError("顧客の削除に失敗しました。");
@@ -97,6 +97,12 @@ const CustomerList = () => {
                     >
                       削除
                     </button>
+                    <Link
+                      to={`/contacts/${c._id}`}
+                      className="inline-block px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs"
+                    >
+                      問い合わせ
+                    </Link>
                   </td>
                 </tr>
               ))}

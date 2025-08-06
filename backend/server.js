@@ -1,4 +1,4 @@
-// server.js
+// backend/server.js (修正版)
 
 const express = require("express");
 const cors = require("cors");
@@ -6,6 +6,8 @@ const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 
 const { verifyFirebaseToken } = require("./middleware/authMiddleware");
+
+// ✅ ここにルーターをインポートする
 const customersRouter = require("./routes/customers");
 const usersRouter = require("./routes/users");
 const salesRoutes = require("./routes/sales");
@@ -15,21 +17,22 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
+// Middlewareをルーターの前に配置することが重要です
 app.use(cors());
-// JSONパーサーを使うが、DELETEメソッドの空ボディでのパースエラーを防ぐためにエラーハンドリングを追加
-app.use(
-  express.json({
-    strict: false, // 厳密なJSONチェックをオフにする（空文字列も許容）
-  })
-);
+app.use(express.json({ strict: false })); // ✅ express.json()の位置に注意
 
-app.use("/api/customers", customersRouter);
-app.use("/api/users", usersRouter);
-app.use("/api/sales", salesRoutes);
-app.use("/api/contacts", contactRoutes);
+// ルーターにauthMiddlewareを適用
+app.use("/api/customers", verifyFirebaseToken, customersRouter); // ✅ ここを修正
+app.use("/api/users", verifyFirebaseToken, usersRouter); // ✅ 他の認証が必要なルートも同様に修正
+app.use("/api/sales", verifyFirebaseToken, salesRoutes);
+app.use("/api/contacts", verifyFirebaseToken, contactRoutes);
 
-// MongoDB 接続
+// テスト用公開ルート
+app.get("/", (req, res) => {
+  res.send("🎉 Backend API is running (CommonJS)");
+});
+
+// MongoDB 接続とサーバー起動は変更なし
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);
@@ -40,17 +43,6 @@ const connectDB = async () => {
   }
 };
 
-// 認証が必要なAPIルート
-app.get("/api/customers", verifyFirebaseToken, (req, res) => {
-  res.json({ message: "🛡️ 認証されたユーザーのみが見られる顧客データです" });
-});
-
-// テスト用公開ルート
-app.get("/", (req, res) => {
-  res.send("🎉 Backend API is running (CommonJS)");
-});
-
-// サーバー起動
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

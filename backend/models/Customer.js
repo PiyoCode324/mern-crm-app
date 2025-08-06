@@ -6,37 +6,33 @@ const customerSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, "顧客名は必須です"],
+      required: true,
       trim: true,
     },
     companyName: {
       type: String,
       trim: true,
-      default: "",
     },
     email: {
       type: String,
       trim: true,
-      default: "",
     },
     phone: {
       type: String,
       trim: true,
-      default: "",
     },
     status: {
       type: String,
       enum: ["見込み", "提案中", "契約済", "失注"],
       default: "見込み",
     },
-    assignedUserId: {
-      type: String, // Firebase UIDの文字列として保持
-      default: null,
-    },
     contactMemo: {
       type: String,
       trim: true,
-      default: "",
+    },
+    assignedUserId: {
+      type: String, // ✅ FirebaseのUIDを保存
+      required: true,
     },
   },
   {

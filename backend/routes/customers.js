@@ -23,6 +23,9 @@ router.get("/", async (req, res) => {
 
 // ➕ 顧客を新規追加
 router.post("/", async (req, res) => {
+  // ✅ 追加: リクエストボディの内容をログに出力
+  console.log("✅ 受信したリクエストボディ:", req.body);
+
   try {
     const { name, companyName, email, phone, status, contactMemo } = req.body;
 
@@ -30,6 +33,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "顧客名は必須です" });
     }
 
+    // assignedUserId はフロントエンドから送られてこないため、req.user.uid を使う
     const newCustomer = new Customer({
       name,
       companyName,
@@ -44,6 +48,10 @@ router.post("/", async (req, res) => {
     res.status(201).json(saved);
   } catch (err) {
     console.error("❌ 顧客追加エラー:", err);
+    if (err.name === "ValidationError") {
+      const messages = Object.values(err.errors).map((val) => val.message);
+      return res.status(400).json({ error: messages.join(", ") });
+    }
     res.status(400).json({ error: "顧客の追加に失敗しました" });
   }
 });

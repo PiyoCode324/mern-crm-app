@@ -5,9 +5,9 @@ import { auth } from "../firebase/config";
 
 const AuthContext = createContext();
 
-export const AuthProvider = ({ children }) => {
+const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null); // ✅ トークンも管理
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,7 +15,7 @@ export const AuthProvider = ({ children }) => {
       if (currentUser) {
         const idToken = await currentUser.getIdToken();
         setUser(currentUser);
-        setToken(idToken); // ✅ トークン保存
+        setToken(idToken);
       } else {
         setUser(null);
         setToken(null);
@@ -33,4 +33,7 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+// ✅ Hook を分離せず、同じファイル内で export
+const useAuth = () => useContext(AuthContext);
+
+export { AuthProvider, useAuth };

@@ -32,19 +32,22 @@ authApi.interceptors.request.use(
  * @param {object} [data=null] - リクエストボディ
  * @returns {Promise<object>} APIレスポンスデータ
  */
+// ✅ token 引数を削除
 export const authorizedRequest = async (method, url, data = null) => {
   const config = {
     method,
     url,
-    headers: {}, // 個別リクエスト用ヘッダー
+    // headersはインターセプターで設定されるため、ここでは空でOK
+    // ただし、Content-TypeはPOST/PUTで必要なので、条件付きで設定
+    headers: {},
   };
 
-  if (method !== "delete") {
+  // DELETEメソッド以外の場合にのみdataとContent-Typeを設定
+  if (method.toLowerCase() !== "delete") {
+    // ✅ toLowerCase() を追加して堅牢に
     config.data = data;
     config.headers["Content-Type"] = "application/json";
   }
-
-  // DELETEの場合はdataもheadersも設定しない（デフォルトでOK）
 
   try {
     const res = await authApi.request(config);
@@ -52,6 +55,7 @@ export const authorizedRequest = async (method, url, data = null) => {
   } catch (error) {
     if (error.response && error.response.status === 401) {
       console.error("認証エラー: トークンが無効です");
+      // ここでログアウト処理などをトリガーすることも可能
     }
     throw error;
   }

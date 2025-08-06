@@ -1,10 +1,11 @@
 // src/components/CustomerForm.jsx
+
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { authorizedRequest } from "../services/authService";
+import { authorizedRequest } from "../services/authService"; // 修正後のauthorizedRequestをインポート
 
 const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
-  const { user, token } = useAuth();
+  const { user } = useAuth(); // token は authorizedRequest に直接渡す必要がなくなったため、ここでは不要（使うなら残す）
 
   const [formData, setFormData] = useState({
     name: "",
@@ -16,8 +17,9 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
   });
 
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 編集対象の顧客データをフォームにセット
   useEffect(() => {
     if (editingCustomer) {
       setFormData({
@@ -41,36 +43,52 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
   }, [editingCustomer]);
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
+    setIsSubmitting(true);
 
-    if (!user || !token) {
+    if (!user) {
+      // token のチェックは authorizedRequest 内のインターセプターが担当
       setError("ログインしてください");
+      setIsSubmitting(false);
       return;
     }
 
+    if (!formData.name) {
+      setError("顧客名は必須です。");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const dataToSend = {
+      ...formData,
+      assignedUserId: user.uid,
+    };
+
     try {
       if (editingCustomer) {
-        // 編集モード（PUT）
+        // ✅ 修正: token 引数を削除
         await authorizedRequest(
           "PUT",
-          `/api/customers/${editingCustomer._id}`,
-          token,
-          formData
+          `/customers/${editingCustomer._id}`,
+          dataToSend
         );
+        setSuccess("顧客情報を更新しました！");
       } else {
-        // 登録モード（POST）
-        await authorizedRequest("POST", "/api/customers", token, formData);
+        // ✅ 修正: token 引数を削除
+        await authorizedRequest("POST", "/customers", dataToSend);
+        setSuccess("新しい顧客を登録しました！");
       }
 
-      // フォーム初期化
       setFormData({
         name: "",
         companyName: "",
@@ -80,10 +98,16 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
         contactMemo: "",
       });
 
-      if (onSuccess) onSuccess();
+      if (onSuccess) {
+        setTimeout(() => onSuccess(), 1500);
+      }
     } catch (err) {
       console.error("送信エラー:", err);
-      setError("送信に失敗しました");
+      const serverMessage =
+        err.response?.data?.message || "送信に失敗しました。";
+      setError(serverMessage);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -95,8 +119,8 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
       <h2 className="text-xl font-bold">
         {editingCustomer ? "顧客情報の編集" : "顧客登録"}
       </h2>
-
       {error && <p className="text-red-500">{error}</p>}
+      {success && <p className="text-green-500">{success}</p>}
 
       <input
         type="text"
@@ -131,7 +155,6 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
         onChange={handleChange}
         className="w-full p-2 border rounded"
       />
-
       <select
         name="status"
         value={formData.status}
@@ -143,7 +166,6 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
         <option value="契約済">契約済</option>
         <option value="失注">失注</option>
       </select>
-
       <textarea
         name="contactMemo"
         placeholder="メモ・対応履歴など"
@@ -156,9 +178,14 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
       <div className="flex gap-4">
         <button
           type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          disabled={isSubmitting}
+          className={`px-4 py-2 rounded text-white ${
+            isSubmitting
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
         >
-          {editingCustomer ? "更新" : "登録"}
+          {isSubmitting ? "送信中..." : editingCustomer ? "更新" : "登録"}
         </button>
 
         {editingCustomer && (

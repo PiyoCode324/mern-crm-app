@@ -19,7 +19,7 @@ const CustomerList = () => {
     }
 
     try {
-      const res = await authorizedRequest("GET", "/api/customers", token);
+      const res = await authorizedRequest("GET", "/customers", token);
       if (Array.isArray(res)) {
         setCustomers(res);
       } else {
@@ -41,7 +41,7 @@ const CustomerList = () => {
     if (!window.confirm("この顧客を削除してもよろしいですか？")) return;
 
     try {
-      await authorizedRequest("DELETE", `/api/customers/${customerId}`, token);
+      await authorizedRequest("DELETE", `/customers/${customerId}`, token);
       fetchCustomers();
     } catch (err) {
       console.error("削除失敗:", err);

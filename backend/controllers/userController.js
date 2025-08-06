@@ -1,6 +1,29 @@
-// backend/controllers/userController.js
+// backend/controllers/userController.js (修正版)
 
 const User = require("../models/User");
+
+// ✅ 修正: 複数のユーザー情報を取得する関数を追加
+const getUsers = async (req, res) => {
+  try {
+    const ids = req.query.ids ? req.query.ids.split(",") : [];
+    if (ids.length === 0) {
+      return res.json([]);
+    }
+
+    const users = await User.find({ uid: { $in: ids } });
+    const formattedUsers = users.map((user) => ({
+      uid: user.uid,
+      // ✅ 修正: user.nameからuser.displayNameに変更
+      displayName: user.displayName,
+      email: user.email,
+    }));
+
+    res.json(formattedUsers);
+  } catch (err) {
+    console.error("❌ ユーザー情報取得エラー:", err);
+    res.status(500).json({ error: "ユーザー情報の取得に失敗しました" });
+  }
+};
 
 // 🔹 ユーザー新規登録（Firebase認証済みのユーザーをMongoDBに登録）
 const registerUser = async (req, res) => {
@@ -20,7 +43,7 @@ const registerUser = async (req, res) => {
       uid,
       name,
       email,
-      role: "user", // デフォルトロール（必要に応じて変更）
+      role: "user",
     });
 
     const savedUser = await newUser.save();
@@ -84,6 +107,7 @@ const deleteUser = async (req, res) => {
 };
 
 module.exports = {
+  getUsers, // ✅ 修正: 新しい関数をエクスポート
   registerUser,
   getUser,
   updateUser,

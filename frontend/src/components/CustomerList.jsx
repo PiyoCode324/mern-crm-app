@@ -1,4 +1,5 @@
 // src/components/CustomerList.jsx
+
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
@@ -61,6 +62,7 @@ const CustomerList = () => {
       />
 
       <h2 className="text-xl font-bold mb-4 mt-8">顧客一覧</h2>
+
       {error ? (
         <p className="text-red-600">{error}</p>
       ) : (
@@ -79,7 +81,14 @@ const CustomerList = () => {
             {Array.isArray(customers) &&
               customers.map((c) => (
                 <tr key={c._id}>
-                  <td className="border p-2">{c.name}</td>
+                  <td className="border p-2">
+                    <Link
+                      to={`/customers/${c._id}`}
+                      className="text-blue-500 hover:underline"
+                    >
+                      {c.name}
+                    </Link>
+                  </td>
                   <td className="border p-2">{c.companyName}</td>
                   <td className="border p-2">{c.status}</td>
                   <td className="border p-2">{c.email}</td>
@@ -98,10 +107,10 @@ const CustomerList = () => {
                       削除
                     </button>
                     <Link
-                      to={`/contacts/${c._id}`}
+                      to={`/customers/${c._id}`}
                       className="inline-block px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs"
                     >
-                      問い合わせ
+                      詳細
                     </Link>
                   </td>
                 </tr>

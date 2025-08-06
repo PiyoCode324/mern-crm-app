@@ -1,4 +1,4 @@
-// backend/routes/users.js
+// backend/routes/users.js (修正版)
 
 const express = require("express");
 const router = express.Router();
@@ -8,6 +8,7 @@ const {
   getUser,
   updateUser,
   deleteUser,
+  getUsers, // ✅ getUsers関数を直接インポート
 } = require("../controllers/userController");
 
 // Firebase認証が必要
@@ -24,5 +25,8 @@ router.put("/me", updateUser);
 
 // 🔸 現在のユーザー削除
 router.delete("/me", deleteUser);
+
+// ✅ 修正: userController.getUsersではなく、直接getUsers関数を呼び出す
+router.get("/", getUsers);
 
 module.exports = router;

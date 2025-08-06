@@ -10,12 +10,16 @@ const ContactForm = ({
   onSuccess,
   onCancelEdit,
 }) => {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    message: "",
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    content: "",
+    responseStatus: "未対応",
+    memo: "",
+    assignedUserId: "",
   });
 
   const [error, setError] = useState("");
@@ -23,15 +27,23 @@ const ContactForm = ({
   useEffect(() => {
     if (editingContact) {
       setFormData({
-        name: editingContact.name || "",
-        email: editingContact.email || "",
-        message: editingContact.message || "",
+        contactName: editingContact.contactName || "",
+        contactEmail: editingContact.contactEmail || "",
+        contactPhone: editingContact.contactPhone || "",
+        content: editingContact.content || "",
+        responseStatus: editingContact.responseStatus || "未対応",
+        memo: editingContact.memo || "",
+        assignedUserId: editingContact.assignedUserId || "",
       });
     } else {
       setFormData({
-        name: "",
-        email: "",
-        message: "",
+        contactName: "",
+        contactEmail: "",
+        contactPhone: "",
+        content: "",
+        responseStatus: "未対応",
+        memo: "",
+        assignedUserId: "",
       });
     }
   }, [editingContact]);
@@ -47,42 +59,46 @@ const ContactForm = ({
     e.preventDefault();
     setError("");
 
-    if (!user || !token) {
+    if (!user) {
       setError("ログインしてください");
       return;
     }
 
-    if (!customerId) {
-      setError("顧客IDが指定されていません");
-      return;
-    }
-
     try {
-      const payload = { ...formData, customerId };
-
+      let payload = {};
       if (editingContact) {
-        // 編集モード（PUT）
+        payload = {
+          ...formData,
+          customerId: editingContact.customerId,
+        };
         await authorizedRequest(
           "PUT",
-          `/api/contacts/${editingContact._id}`,
-          token,
+          `/contacts/${editingContact._id}`,
           payload
         );
       } else {
-        // 登録モード（POST）
-        await authorizedRequest("POST", "/api/contacts", token, payload);
+        payload = {
+          ...formData,
+          assignedUserId: user.uid,
+          customerId: customerId || null,
+        };
+        await authorizedRequest("POST", "/contacts", payload);
       }
 
       setFormData({
-        name: "",
-        email: "",
-        message: "",
+        contactName: "",
+        contactEmail: "",
+        contactPhone: "",
+        content: "",
+        responseStatus: "未対応",
+        memo: "",
+        assignedUserId: "",
       });
 
       if (onSuccess) onSuccess();
     } catch (err) {
       console.error("送信エラー:", err);
-      setError("送信に失敗しました");
+      setError(err.response?.data?.error || "送信に失敗しました。");
     }
   };
 
@@ -99,31 +115,86 @@ const ContactForm = ({
 
       <input
         type="text"
-        name="name"
-        placeholder="名前 *"
-        value={formData.name}
+        name="contactName"
+        placeholder="氏名 *"
+        value={formData.contactName}
         onChange={handleChange}
         required
         className="w-full p-2 border rounded"
       />
       <input
         type="email"
-        name="email"
+        name="contactEmail"
         placeholder="メールアドレス *"
-        value={formData.email}
+        value={formData.contactEmail}
         onChange={handleChange}
         required
         className="w-full p-2 border rounded"
       />
+      <input
+        type="tel"
+        name="contactPhone"
+        placeholder="電話番号"
+        value={formData.contactPhone}
+        onChange={handleChange}
+        className="w-full p-2 border rounded"
+      />
       <textarea
-        name="message"
-        placeholder="メッセージ *"
-        value={formData.message}
+        name="content"
+        placeholder="内容 *"
+        value={formData.content}
         onChange={handleChange}
         required
         rows={4}
         className="w-full p-2 border rounded"
       />
+
+      {editingContact && (
+        <>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              担当者ID
+            </label>
+            <input
+              type="text"
+              name="assignedUserId"
+              placeholder="担当者ID"
+              value={formData.assignedUserId}
+              onChange={handleChange}
+              className="mt-1 w-full p-2 border rounded bg-gray-100"
+              readOnly
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              対応ステータス
+            </label>
+            <select
+              name="responseStatus"
+              value={formData.responseStatus}
+              onChange={handleChange}
+              className="mt-1 w-full p-2 border rounded"
+            >
+              <option value="未対応">未対応</option>
+              <option value="対応中">対応中</option>
+              <option value="対応済み">対応済み</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              メモ
+            </label>
+            <textarea
+              name="memo"
+              placeholder="メモ"
+              value={formData.memo}
+              onChange={handleChange}
+              rows={2}
+              className="mt-1 w-full p-2 border rounded"
+            />
+          </div>
+        </>
+      )}
 
       <div className="flex gap-4">
         <button
@@ -136,10 +207,7 @@ const ContactForm = ({
         {editingContact && (
           <button
             type="button"
-            onClick={() => {
-              setFormData({ name: "", email: "", message: "" });
-              if (onCancelEdit) onCancelEdit();
-            }}
+            onClick={onCancelEdit}
             className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500"
           >
             キャンセル

@@ -1,12 +1,21 @@
 // src/pages/ContactsPage.jsx
+
 import { useState } from "react";
 import ContactForm from "../components/ContactForm";
 import ContactList from "../components/ContactList";
 
 const ContactsPage = () => {
   const [editingContact, setEditingContact] = useState(null);
+  const [refreshList, setRefreshList] = useState(0);
 
-  const clearEditing = () => setEditingContact(null);
+  const handleSuccess = () => {
+    setRefreshList((prev) => prev + 1);
+    setEditingContact(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingContact(null);
+  };
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -14,11 +23,13 @@ const ContactsPage = () => {
 
       <ContactForm
         editingContact={editingContact}
-        onSuccess={clearEditing}
-        onCancelEdit={clearEditing}
+        onSuccess={handleSuccess}
+        onCancelEdit={handleCancelEdit}
       />
 
-      <ContactList onEdit={setEditingContact} />
+      <div className="mt-8">
+        <ContactList onEdit={setEditingContact} refreshTrigger={refreshList} />
+      </div>
     </div>
   );
 };

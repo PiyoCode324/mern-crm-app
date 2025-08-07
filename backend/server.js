@@ -4,10 +4,11 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
+const admin = require("firebase-admin");
 
 const { verifyFirebaseToken } = require("./middleware/authMiddleware");
 
-// ✅ ここにルーターをインポートする
+// ここにルーターをインポートする
 const customersRouter = require("./routes/customers");
 const usersRouter = require("./routes/users");
 const salesRoutes = require("./routes/salesRoutes");
@@ -15,15 +16,35 @@ const contactRoutes = require("./routes/contactRoutes");
 
 dotenv.config();
 
-const app = express();
+// 環境変数からBase64キーを読み込み、デコードする
+const serviceAccountBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_BASE64;
+if (!serviceAccountBase64) {
+  console.error(
+    "環境変数 FIREBASE_SERVICE_ACCOUNT_KEY_BASE64 が設定されていません。"
+  );
+  process.exit(1);
+}
+const serviceAccount = JSON.parse(
+  Buffer.from(serviceAccountBase64, "base64").toString("utf-8")
+);
 
-// Middlewareをルーターの前に配置することが重要です
+// Firebase Admin SDKが初期化済みでない場合のみ初期化
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+  console.log("✅ Firebase Admin SDK initialized");
+}
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
 app.use(cors());
-app.use(express.json({ strict: false })); // ✅ express.json()の位置に注意
+app.use(express.json({ strict: false }));
 
 // ルーターにauthMiddlewareを適用
-app.use("/api/customers", verifyFirebaseToken, customersRouter); // ✅ ここを修正
-app.use("/api/users", verifyFirebaseToken, usersRouter); // ✅ 他の認証が必要なルートも同様に修正
+app.use("/api/customers", verifyFirebaseToken, customersRouter);
+app.use("/api/users", verifyFirebaseToken, usersRouter);
 app.use("/api/sales", verifyFirebaseToken, salesRoutes);
 app.use("/api/contacts", verifyFirebaseToken, contactRoutes);
 
@@ -42,8 +63,6 @@ const connectDB = async () => {
     process.exit(1);
   }
 };
-
-const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);

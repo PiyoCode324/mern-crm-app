@@ -1,14 +1,18 @@
-// backend/routes/users.js (修正版)
+// backend/routes/users.js
 
 const express = require("express");
 const router = express.Router();
-const { verifyFirebaseToken } = require("../middleware/authMiddleware");
+const {
+  verifyFirebaseToken,
+  isAdmin,
+} = require("../middleware/authMiddleware");
 const {
   registerUser,
   getUser,
   updateUser,
   deleteUser,
-  getUsers, // ✅ getUsers関数を直接インポート
+  getUsers,
+  getAllUsers,
 } = require("../controllers/userController");
 
 // Firebase認証が必要
@@ -26,7 +30,10 @@ router.put("/me", updateUser);
 // 🔸 現在のユーザー削除
 router.delete("/me", deleteUser);
 
-// ✅ 修正: userController.getUsersではなく、直接getUsers関数を呼び出す
+// ✅ 元のルート：IDクエリでユーザーを取得
 router.get("/", getUsers);
+
+// ✅ 新しいルート：管理者専用で、すべてのユーザーを取得
+router.get("/all", isAdmin, getAllUsers);
 
 module.exports = router;

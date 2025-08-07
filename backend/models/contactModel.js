@@ -37,8 +37,14 @@ const contactSchema = new mongoose.Schema(
       default: null, // 初期値としてnullを設定
     },
     // 新規問い合わせを管理するために、名前とメールアドレスも追加します
+    customerName: {
+      // 修正: 会社名を追加
+      type: String,
+      trim: true,
+    },
     contactName: {
       type: String,
+      // 修正: 必須ではなくなります
       required: [true, "氏名は必須です"],
       trim: true,
     },

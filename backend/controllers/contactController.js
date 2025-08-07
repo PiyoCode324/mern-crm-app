@@ -1,22 +1,28 @@
 // backend/controllers/contactController.js
 
 const Contact = require("../models/contactModel");
-const mongoose = require("mongoose"); // ObjectIdのバリデーションに使用
+const mongoose = require("mongoose");
 
 // 📄 問い合わせ一覧取得
 exports.getContacts = async (req, res) => {
   try {
     const filter = {};
+    const isAdmin = req.user && req.user.role === "admin";
+
     // 顧客IDがクエリパラメータに含まれている場合は、その顧客に紐づく問い合わせのみを返す
     if (req.query.customerId) {
       if (!mongoose.Types.ObjectId.isValid(req.query.customerId)) {
         return res.status(400).json({ error: "無効な顧客IDです" });
       }
       filter.customerId = req.query.customerId;
-    }
-    // 顧客IDが指定されていない場合は、ログインユーザーの問い合わせのみを返す
-    if (!req.query.customerId) {
-      filter.assignedUserId = req.user.uid;
+    } else if (!isAdmin) {
+      // Adminユーザーではない場合、ログインユーザーに割り当てられた問い合わせのみを返す
+      if (req.user && req.user.uid) {
+        filter.assignedUserId = req.user.uid;
+      } else {
+        // ログインしていない場合は何も返さない
+        return res.json([]);
+      }
     }
 
     const contacts = await Contact.find(filter).sort({ createdAt: -1 });
@@ -30,21 +36,32 @@ exports.getContacts = async (req, res) => {
 // ➕ 問い合わせを新規作成
 exports.createContact = async (req, res) => {
   try {
-    const { customerId, contactName, contactEmail, content, contactPhone } =
-      req.body;
+    const {
+      customerId,
+      customerName,
+      contactName,
+      contactEmail,
+      content,
+      contactPhone,
+      responseStatus,
+    } = req.body;
 
     if (!contactName || !content) {
       return res.status(400).json({ error: "氏名・内容は必須です" });
     }
 
-    // ✅ セキュリティ強化: assignedUserIdは常にログインユーザーのIDを使用
+    // ログインユーザーの場合、assignedUserIdを設定
+    const assignedUserId = req.user ? req.user.uid : null;
+
     const newContact = new Contact({
       customerId: customerId || null,
+      customerName,
       contactName,
       contactEmail,
       contactPhone: contactPhone || "",
       content,
-      assignedUserId: req.user.uid, // ✅ ここで上書き
+      responseStatus: responseStatus || "未対応", // ✅ 修正: リクエストからステータスを取得、なければ"未対応"
+      assignedUserId,
     });
 
     const saved = await newContact.save();
@@ -63,14 +80,18 @@ exports.updateContact = async (req, res) => {
       return res.status(404).json({ error: "問い合わせが見つかりません" });
     }
 
-    // ✅ セキュリティチェック: assignedUserIdが一致するか確認
-    if (contact.assignedUserId && contact.assignedUserId !== req.user.uid) {
+    const isAdmin = req.user && req.user.role === "admin";
+    if (
+      !isAdmin &&
+      contact.assignedUserId &&
+      contact.assignedUserId !== req.user.uid
+    ) {
       return res.status(403).json({ error: "権限がありません" });
     }
 
-    // `req.body`からデータを取得（assignedUserIdは更新しない）
     const {
       customerId,
+      customerName,
       contactName,
       contactEmail,
       content,
@@ -79,13 +100,12 @@ exports.updateContact = async (req, res) => {
       memo,
     } = req.body;
 
-    // バリデーション
     if (!contactName || !content) {
       return res.status(400).json({ error: "氏名・内容は必須です" });
     }
 
-    // データの更新
     contact.customerId = customerId || contact.customerId;
+    contact.customerName = customerName || contact.customerName;
     contact.contactName = contactName;
     contact.contactEmail = contactEmail;
     contact.content = content;
@@ -109,8 +129,12 @@ exports.deleteContact = async (req, res) => {
       return res.status(404).json({ error: "問い合わせが見つかりません" });
     }
 
-    // ✅ セキュリティチェック: assignedUserIdが一致するか確認
-    if (contact.assignedUserId && contact.assignedUserId !== req.user.uid) {
+    const isAdmin = req.user && req.user.role === "admin";
+    if (
+      !isAdmin &&
+      contact.assignedUserId &&
+      contact.assignedUserId !== req.user.uid
+    ) {
       return res.status(403).json({ error: "権限がありません" });
     }
 

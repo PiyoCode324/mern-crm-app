@@ -1,133 +1,129 @@
 // src/components/ContactList.jsx (修正版)
 
-import { useEffect, useState, useCallback } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useState, useEffect } from "react";
 import { authorizedRequest } from "../services/authService";
+import { Link } from "react-router-dom";
 
-const ContactList = ({ onEdit, customerId, refreshTrigger }) => {
-  const { user } = useAuth();
+const ContactList = ({ onEdit, refreshTrigger }) => {
   const [contacts, setContacts] = useState([]);
-  const [users, setUsers] = useState({}); // ✅ 修正: 担当者IDとユーザー名を紐づけるための状態
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchContacts = useCallback(async () => {
-    if (!user) {
-      setError("ログインしてください。");
-      setContacts([]);
-      return;
-    }
-
-    try {
-      const url = customerId
-        ? `/contacts?customerId=${customerId}`
-        : `/contacts`;
-
-      const res = await authorizedRequest("GET", url);
-      if (Array.isArray(res)) {
-        setContacts(res);
-
-        // ✅ 修正: 問い合わせの担当者情報を取得
-        const assignedUserIds = [
-          ...new Set(res.map((c) => c.assignedUserId)),
-        ].filter((id) => id);
-        if (assignedUserIds.length > 0) {
-          const usersRes = await authorizedRequest(
-            "GET",
-            `/users?ids=${assignedUserIds.join(",")}`
-          );
-          const usersMap = usersRes.reduce((acc, curr) => {
-            acc[curr.uid] = curr.displayName;
-            return acc;
-          }, {});
-          setUsers(usersMap);
-        } else {
-          setUsers({});
-        }
-      } else {
-        console.error("APIレスポンスの形式が不正です:", res);
-        setContacts([]);
-        setUsers({});
-      }
-      setError(null);
-    } catch (err) {
-      console.error("問い合わせ取得失敗:", err);
-      setError(
-        err.response?.data?.error || "問い合わせ情報の取得に失敗しました。"
-      );
-    }
-  }, [user, customerId]);
-
   useEffect(() => {
+    const fetchContacts = async () => {
+      console.log("📄 ContactList: APIに問い合わせ一覧をリクエストします...");
+      try {
+        setLoading(true);
+        const response = await authorizedRequest("GET", "/contacts");
+        console.log(
+          "✅ ContactList: APIから以下のデータを受信しました:",
+          response
+        );
+        // 修正: レスポンスが既にデータ配列であることを想定し、安全にセット
+        const data = Array.isArray(response) ? response : [];
+        setContacts(data);
+        setError(null);
+      } catch (err) {
+        console.error("❌ ContactList: 問い合わせの取得に失敗しました:", err);
+        setError("問い合わせの取得に失敗しました。");
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchContacts();
-  }, [fetchContacts, refreshTrigger]);
+  }, [refreshTrigger]);
 
-  const handleDelete = async (contactId) => {
-    if (!window.confirm("この問い合わせを削除してもよろしいですか？")) return;
+  if (loading) {
+    return <div className="text-center">データを読み込み中...</div>;
+  }
 
-    try {
-      await authorizedRequest("DELETE", `/contacts/${contactId}`);
-      fetchContacts();
-    } catch (err) {
-      console.error("削除失敗:", err);
-      setError(err.response?.data?.error || "問い合わせの削除に失敗しました。");
-    }
-  };
+  if (error) {
+    return <div className="text-center text-red-500">{error}</div>;
+  }
 
   return (
-    <div className="max-w-5xl mx-auto mt-8">
+    <div className="bg-white shadow-md rounded-lg p-6">
       <h2 className="text-xl font-bold mb-4">問い合わせ一覧</h2>
-      {error ? (
-        <p className="text-red-600">{error}</p>
-      ) : contacts.length === 0 ? (
-        <p>問い合わせがありません。</p>
-      ) : (
-        <table className="w-full border-collapse border text-sm">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="border p-2">名前</th>
-              <th className="border p-2">メール</th>
-              <th className="border p-2">内容</th>
-              <th className="border p-2">ステータス</th>
-              <th className="border p-2">担当者</th>
-              <th className="border p-2">作成日時</th>
-              <th className="border p-2">操作</th>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                会社名
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                担当者名
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                内容
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                ステータス
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                担当者
+              </th>
+              <th className="px-6 py-3"></th>
             </tr>
           </thead>
-          <tbody>
-            {contacts.map((c) => (
-              <tr key={c._id}>
-                <td className="border p-2">{c.contactName}</td>
-                <td className="border p-2">{c.contactEmail}</td>
-                <td className="border p-2 whitespace-pre-wrap">{c.content}</td>
-                <td className="border p-2">{c.responseStatus}</td>
-                <td className="border p-2">
-                  {/* ✅ 修正: assignedUserIdから担当者名を表示 */}
-                  {c.assignedUserId
-                    ? users[c.assignedUserId] || "不明"
-                    : "未割り当て"}
-                </td>
-                <td className="border p-2">
-                  {new Date(c.createdAt).toLocaleString()}
-                </td>
-                <td className="border p-2 space-x-2">
-                  <button
-                    onClick={() => onEdit(c)}
-                    className="px-2 py-1 bg-yellow-400 hover:bg-yellow-500 text-white rounded text-xs"
-                  >
-                    編集
-                  </button>
-                  <button
-                    onClick={() => handleDelete(c._id)}
-                    className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs"
-                  >
-                    削除
-                  </button>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {contacts.length === 0 ? (
+              <tr>
+                <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                  問い合わせはまだありません。
                 </td>
               </tr>
-            ))}
+            ) : (
+              contacts.map((contact) => (
+                <tr key={contact._id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {contact.customerName || "N/A"}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {contact.contactName}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900 truncate max-w-xs">
+                      {contact.content}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        contact.responseStatus === "対応済み"
+                          ? "bg-green-100 text-green-800"
+                          : contact.responseStatus === "対応中"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {contact.responseStatus}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {contact.assignedUserId
+                      ? contact.assignedUserId
+                      : "担当者不明"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={() => onEdit(contact)}
+                      className="text-indigo-600 hover:text-indigo-900 mr-2"
+                    >
+                      編集
+                    </button>
+                    {/* <Link to={`/contacts/${contact._id}`} className="text-blue-600 hover:text-blue-900">詳細</Link> */}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
-      )}
+      </div>
     </div>
   );
 };

@@ -2,8 +2,10 @@
 
 const admin = require("../firebaseAdmin");
 const User = require("../models/User"); // Userモデルをインポート
+const asyncHandler = require("express-async-handler"); // ✅ asyncHandlerをインポート
 
-const verifyFirebaseToken = async (req, res, next) => {
+const verifyFirebaseToken = asyncHandler(async (req, res, next) => {
+  // ✅ asyncHandlerでラップ
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "未認証：トークンがありません" });
@@ -17,9 +19,6 @@ const verifyFirebaseToken = async (req, res, next) => {
     const user = await User.findOne({ uid: decodedToken.uid });
 
     if (!user) {
-      // MongoDBにユーザーが存在しない場合（初回ログイン時など）
-      // 必要に応じてここでユーザーを自動登録するか、エラーを返す
-      // 現状は、ユーザーが見つからない場合はエラーとする
       return res
         .status(404)
         .json({ message: "未登録ユーザー：MongoDBにユーザー情報がありません" });
@@ -37,6 +36,19 @@ const verifyFirebaseToken = async (req, res, next) => {
     // Firebaseトークンが無効な場合や期限切れの場合
     return res.status(401).json({ message: "未認証：トークンが無効です" });
   }
+});
+
+// ✅ 新しいミドルウェア：管理者権限のチェック
+const isAdmin = (req, res, next) => {
+  if (req.user && req.user.role === "admin") {
+    next();
+  } else {
+    res.status(403).json({ message: "管理者権限が必要です。" });
+  }
 };
 
-module.exports = { verifyFirebaseToken };
+// ✅ isAdminをエクスポートに追加
+module.exports = {
+  verifyFirebaseToken,
+  isAdmin,
+};

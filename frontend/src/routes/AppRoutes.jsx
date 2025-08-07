@@ -1,5 +1,6 @@
-// src/routes/AppRoutes.jsx (修正箇所)
+// src/routes/AppRoutes.jsx
 
+import React from "react";
 import { Routes, Route } from "react-router-dom";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
@@ -11,6 +12,8 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import FreeContactPage from "../pages/FreeContactPage";
 import SalesPage from "../pages/SalesPage";
 import Dashboard from "../pages/Dashboard";
+import ContactForm from "../components/ContactForm";
+import AdminUserPage from "../pages/AdminUserPage";
 
 const AppRoutes = () => {
   return (
@@ -19,6 +22,15 @@ const AppRoutes = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/contact-form" element={<FreeContactPage />} />{" "}
       {/* 公開フォームのルート */}
+      {/* ログインが必要なルート */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/profile"
         element={
@@ -52,6 +64,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/contacts/new"
+        element={
+          <ProtectedRoute>
+            <ContactForm />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/customers/:customerId/contacts"
         element={
           <ProtectedRoute>
@@ -72,6 +92,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      {/* ✅ 管理者向けのルート */}
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute adminOnly={true}>
+            <AdminUserPage />
           </ProtectedRoute>
         }
       />

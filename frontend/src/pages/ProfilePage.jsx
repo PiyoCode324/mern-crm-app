@@ -12,7 +12,7 @@ import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
 
 const ProfilePage = () => {
-  const { user: firebaseUser, token, setToken } = useAuth(); // useAuthからsetTokenも取得
+  const { user: firebaseUser, token, setToken, logout } = useAuth(); // ✅ logout関数を取得
   const [profile, setProfile] = useState(null);
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -27,17 +27,12 @@ const ProfilePage = () => {
         return;
       }
       try {
-        // ユーザー情報を取得する前に、MongoDBにユーザーを登録する
-        // 既に登録済みであれば200が返される
         await authorizedRequest("POST", "/users/register", null, token);
-
-        // ユーザー情報を取得
         const res = await authorizedRequest("GET", "/users/me", token);
         setProfile(res.user);
         setDisplayName(res.user.displayName || "");
       } catch (err) {
         console.error("ユーザー取得エラー", err);
-        // エラーレスポンスが401の場合はログアウトさせる
         if (err.response && err.response.status === 401) {
           localStorage.removeItem("token");
           navigate("/login");
@@ -50,7 +45,6 @@ const ProfilePage = () => {
     fetchUser();
   }, [token, navigate]);
 
-  // 再認証関数
   const reauthenticate = async (password) => {
     if (!firebaseUser) throw new Error("ユーザーが見つかりません");
     const credential = EmailAuthProvider.credential(
@@ -93,7 +87,6 @@ const ProfilePage = () => {
         throw new Error("ユーザーまたはトークンがありません");
       }
 
-      // パスワード再入力を促して再認証
       const password = window.prompt(
         "操作を続行するにはパスワードを再入力してください"
       );
@@ -103,14 +96,9 @@ const ProfilePage = () => {
       }
 
       await reauthenticate(password);
-
-      // バックエンドAPIでユーザー削除
       await authorizedRequest("DELETE", "/users/me");
-
-      // Firebaseユーザーの削除
       await firebaseUser.delete();
 
-      // ✅ 削除が成功したら、クライアント側の認証状態をクリア
       localStorage.removeItem("token");
       if (setToken) {
         setToken(null);
@@ -147,6 +135,11 @@ const ProfilePage = () => {
       </div>
     );
   }
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/login");
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -194,6 +187,14 @@ const ProfilePage = () => {
             アカウント削除
           </button>
         </div>
+
+        {/* ✅ ログアウトボタンを追加 */}
+        <button
+          onClick={handleLogout}
+          className="mt-4 w-full bg-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-700 transition-colors"
+        >
+          ログアウト
+        </button>
       </div>
     </div>
   );

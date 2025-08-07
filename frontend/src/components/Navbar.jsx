@@ -1,15 +1,15 @@
 // components/Navbar.jsx
-import { getAuth, signOut } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 const Navbar = () => {
-  const auth = getAuth();
+  const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      navigate("/");
+      await logout();
+      navigate("/login");
     } catch (error) {
       console.error("ログアウト失敗:", error);
     }
@@ -17,13 +17,41 @@ const Navbar = () => {
 
   return (
     <nav className="p-4 bg-gray-800 text-white flex justify-between items-center">
-      <h1 className="text-xl font-bold">CRM App</h1>
-      <button
-        onClick={handleLogout}
-        className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded"
-      >
-        ログアウト
-      </button>
+      <div className="flex items-center">
+        <Link to="/" className="text-xl font-bold mr-6">
+          CRM App
+        </Link>
+        {user && (
+          <>
+            <Link to="/profile" className="mr-4 hover:text-gray-300">
+              プロフィール
+            </Link>
+            {/* ✅ isAdminがtrueの場合のみ表示 */}
+            {isAdmin && (
+              <Link to="/admin/users" className="hover:text-gray-300">
+                ユーザー管理
+              </Link>
+            )}
+          </>
+        )}
+      </div>
+      <div>
+        {user ? (
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded"
+          >
+            ログアウト
+          </button>
+        ) : (
+          <Link
+            to="/login"
+            className="bg-green-500 hover:bg-green-600 px-4 py-2 rounded"
+          >
+            ログイン
+          </Link>
+        )}
+      </div>
     </nav>
   );
 };

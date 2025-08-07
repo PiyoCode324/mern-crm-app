@@ -1,9 +1,10 @@
 // src/services/authService.js
-
 import axios from "axios";
+import { getAuth, signInWithCustomToken, signOut } from "firebase/auth"; // signOutを追加
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+// axiosインスタンスの作成
 const authApi = axios.create({
   baseURL: BASE_URL,
   headers: {
@@ -27,24 +28,15 @@ authApi.interceptors.request.use(
 
 /**
  * 認証が必要なAPIリクエストを送信するヘルパー関数
- * @param {string} method - HTTPメソッド (例: 'get', 'post', 'put', 'delete')
- * @param {string} url - APIエンドポイントのURL (例: '/api/users/me')
- * @param {object} [data=null] - リクエストボディ
- * @returns {Promise<object>} APIレスポンスデータ
  */
-// ✅ token 引数を削除
 export const authorizedRequest = async (method, url, data = null) => {
   const config = {
     method,
     url,
-    // headersはインターセプターで設定されるため、ここでは空でOK
-    // ただし、Content-TypeはPOST/PUTで必要なので、条件付きで設定
     headers: {},
   };
 
-  // DELETEメソッド以外の場合にのみdataとContent-Typeを設定
   if (method.toLowerCase() !== "delete") {
-    // ✅ toLowerCase() を追加して堅牢に
     config.data = data;
     config.headers["Content-Type"] = "application/json";
   }
@@ -55,8 +47,31 @@ export const authorizedRequest = async (method, url, data = null) => {
   } catch (error) {
     if (error.response && error.response.status === 401) {
       console.error("認証エラー: トークンが無効です");
-      // ここでログアウト処理などをトリガーすることも可能
     }
     throw error;
   }
+};
+
+/**
+ * ログイン関数
+ */
+export const login = async (email, password) => {
+  try {
+    const response = await authApi.post("/users/login", { email, password });
+    const { token } = response.data;
+    localStorage.setItem("token", token);
+    return response.data;
+  } catch (error) {
+    console.error("ログインエラー:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/**
+ * ログアウト関数
+ */
+export const logout = async () => {
+  const auth = getAuth();
+  await signOut(auth); // Firebaseからサインアウト
+  localStorage.removeItem("token"); // localStorageからトークンを削除
 };

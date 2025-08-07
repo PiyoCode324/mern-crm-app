@@ -3,13 +3,14 @@
 import { Routes, Route } from "react-router-dom";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
-import Dashboard from "../pages/Dashboard";
 import ProfilePage from "../pages/ProfilePage";
 import CustomerPage from "../pages/CustomerPage";
 import CustomerDetailPage from "../pages/CustomerDetailPage";
 import ContactsPage from "../pages/ContactsPage";
 import ProtectedRoute from "../components/ProtectedRoute";
-import FreeContactPage from "../pages/FreeContactPage"; // ✅ 新しい公開フォームをインポート
+import FreeContactPage from "../pages/FreeContactPage";
+import SalesPage from "../pages/SalesPage";
+import Dashboard from "../pages/Dashboard";
 
 const AppRoutes = () => {
   return (
@@ -17,16 +18,7 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/contact-form" element={<FreeContactPage />} />{" "}
-      {/* ✅ 公開フォームのルートを追加 */}
-      {/* ログインユーザー向けの保護されたルート */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
+      {/* 公開フォームのルート */}
       <Route
         path="/profile"
         element={
@@ -59,12 +51,27 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-      {/* 顧客に紐づいた問い合わせ一覧を表示するためのルート */}
       <Route
         path="/customers/:customerId/contacts"
         element={
           <ProtectedRoute>
             <ContactsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales"
+        element={
+          <ProtectedRoute>
+            <SalesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
           </ProtectedRoute>
         }
       />

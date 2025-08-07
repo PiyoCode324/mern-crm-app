@@ -10,7 +10,7 @@ const { verifyFirebaseToken } = require("./middleware/authMiddleware");
 // ✅ ここにルーターをインポートする
 const customersRouter = require("./routes/customers");
 const usersRouter = require("./routes/users");
-const salesRoutes = require("./routes/sales");
+const salesRoutes = require("./routes/salesRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 
 dotenv.config();

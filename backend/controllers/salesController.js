@@ -1,81 +1,141 @@
 // backend/controllers/salesController.js
 
-const Sales = require("../models/Sales"); // models/sales.jsのモデルを正しく参照
+const Sales = require("../models/Sales");
+const mongoose = require("mongoose");
 
-// 売上データ登録
+// 🔹 営業案件を新規登録
 exports.createSale = async (req, res) => {
   try {
-    // フロントエンドのフォームデータに合わせて修正
-    const { productName, unitPrice, quantity, saleDate } = req.body;
+    const { dealName, customerId, amount, status, notes } = req.body;
 
     const newSale = new Sales({
-      productName,
-      unitPrice,
-      quantity,
-      saleDate,
+      dealName,
+      customerId,
+      amount,
+      status,
+      notes,
+      assignedUserId: req.user.uid, // ✅ ログインユーザーのIDを自動で紐づけ
     });
 
     const savedSale = await newSale.save();
     res.status(201).json(savedSale);
   } catch (error) {
-    console.error("Error creating sale:", error); // デバッグ用にエラーログを出力
-    // Mongooseのバリデーションエラーを返す
+    console.error("❌ 案件登録エラー:", error);
     res
       .status(400)
-      .json({ message: "売上データの登録に失敗しました", error: error });
+      .json({ message: "案件の登録に失敗しました", error: error.message });
   }
 };
 
-// 売上データ取得（新規追加）
-exports.getAllSales = async (req, res) => {
+// 📄 ログインユーザーに紐づくすべての営業案件を取得
+exports.getSales = async (req, res) => {
   try {
-    const sales = await Sales.find().sort({ date: -1 }); // 日付の新しい順にソート（任意）
+    // ✅ ログインユーザーのIDでフィルタリング
+    const sales = await Sales.find({ assignedUserId: req.user.uid }).sort({
+      createdAt: -1,
+    });
     res.status(200).json(sales);
   } catch (error) {
-    res.status(500).json({ message: "売上データの取得に失敗しました", error });
+    console.error("❌ 案件取得エラー:", error);
+    res
+      .status(500)
+      .json({ message: "案件の取得に失敗しました", error: error.message });
   }
 };
 
-// 売上データ削除
-exports.deleteSale = async (req, res) => {
-  try {
-    const { id } = req.params; // 例: DELETE /sales/:id で送られてくる
-
-    const deletedSale = await Sales.findByIdAndDelete(id);
-
-    if (!deletedSale) {
-      return res
-        .status(404)
-        .json({ message: "対象の売上データが見つかりませんでした。" });
-    }
-
-    res.status(200).json({ message: "削除に成功しました", deletedSale });
-  } catch (error) {
-    console.error("Error deleting sale:", error);
-    res.status(500).json({ message: "売上データの削除に失敗しました", error });
-  }
-};
-
-// 売上データ更新
+// ✏️ 特定の営業案件を更新
 exports.updateSale = async (req, res) => {
   try {
-    const { id } = req.params; // URLパラメータのIDを取得
+    const { id } = req.params;
 
-    const updatedSale = await Sales.findByIdAndUpdate(
-      id,
-      req.body, // req.bodyの内容で更新
-      { new: true } // 更新後のデータを返す
+    const updatedSale = await Sales.findOneAndUpdate(
+      // ✅ 案件IDと担当者IDでフィルタリング
+      { _id: id, assignedUserId: req.user.uid },
+      req.body,
+      { new: true, runValidators: true }
     );
 
     if (!updatedSale) {
       return res
         .status(404)
-        .json({ message: "対象の売上データが見つかりませんでした。" });
+        .json({ message: "対象の案件が見つかりませんでした。" });
     }
 
-    res.status(200).json({ message: "更新に成功しました", updatedSale });
+    res.status(200).json({ message: "案件を更新しました", updatedSale });
   } catch (error) {
-    console.error("Error updating sale:", error);
-    res.status(500).json({ message: "売上データの更新に失敗しました", error });
+    console.error("❌ 案件更新エラー:", error);
+    res
+      .status(400)
+      .json({ message: "案件の更新に失敗しました", error: error.message });
+  }
+};
+
+// 🗑️ 特定の営業案件を削除
+exports.deleteSale = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deletedSale = await Sales.findOneAndDelete({
+      // ✅ 案件IDと担当者IDでフィルタリング
+      _id: id,
+      assignedUserId: req.user.uid,
+    });
+
+    if (!deletedSale) {
+      return res
+        .status(404)
+        .json({ message: "対象の案件が見つかりませんでした。" });
+    }
+
+    res.status(200).json({ message: "案件を削除しました" });
+  } catch (error) {
+    console.error("❌ 案件削除エラー:", error);
+    res
+      .status(500)
+      .json({ message: "案件の削除に失敗しました", error: error.message });
+  }
+};
+
+// 営業案件のサマリーを取得する関数
+exports.getSalesSummary = async (req, res) => {
+  try {
+    const userId = req.user.uid;
+
+    // パイプラインを定義
+    const summary = await Sales.aggregate([
+      // 1. ログインユーザーの案件のみをフィルタリング
+      { $match: { assignedUserId: userId } },
+      // 2. 案件を集計
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: "$amount" }, // 全案件の金額を合計
+          totalDeals: { $sum: 1 }, // 案件数をカウント
+        },
+      },
+      // 3. 平均金額を計算
+      {
+        $project: {
+          _id: 0,
+          totalSales: 1,
+          totalDeals: 1,
+          averageDealValue: { $divide: ["$totalSales", "$totalDeals"] },
+        },
+      },
+    ]);
+
+    // サマリーデータが存在しない場合はデフォルト値を返す
+    if (summary.length === 0) {
+      return res.status(200).json({
+        totalSales: 0,
+        totalDeals: 0,
+        averageDealValue: 0,
+      });
+    }
+
+    res.status(200).json(summary[0]);
+  } catch (error) {
+    console.error("売上サマリーの取得に失敗しました:", error);
+    res.status(500).json({ message: "売上サマリーの取得に失敗しました" });
   }
 };

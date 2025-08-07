@@ -9,6 +9,7 @@ const {
   updateSale,
   deleteSale,
   getSalesSummary,
+  getSalesByCustomerId,
 } = require("../controllers/salesController");
 
 // 🔐 認証ミドルウェアをすべてのルートに適用
@@ -20,12 +21,14 @@ router.get("/", getSales);
 // 🔹 案件を新規登録
 router.post("/", createSale);
 
+router.get("/summary", getSalesSummary);
+
+router.get("/customer/:customerId", getSalesByCustomerId);
+
 // ✏️ 案件情報を更新
 router.put("/:id", updateSale);
 
 // 🗑️ 案件を削除
 router.delete("/:id", deleteSale);
-
-router.get("/summary", getSalesSummary);
 
 module.exports = router;

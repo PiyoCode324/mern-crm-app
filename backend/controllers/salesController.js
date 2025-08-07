@@ -14,7 +14,8 @@ exports.createSale = async (req, res) => {
       amount,
       status,
       notes,
-      assignedUserId: req.user.uid, // ✅ ログインユーザーのIDを自動で紐づけ
+      // ✅ セキュリティ強化: assignedUserIdは常にログインユーザーのIDを使用
+      assignedUserId: req.user.uid,
     });
 
     const savedSale = await newSale.save();
@@ -137,5 +138,27 @@ exports.getSalesSummary = async (req, res) => {
   } catch (error) {
     console.error("売上サマリーの取得に失敗しました:", error);
     res.status(500).json({ message: "売上サマリーの取得に失敗しました" });
+  }
+};
+
+// 特定の顧客に紐づく案件を取得する関数
+exports.getSalesByCustomerId = async (req, res) => {
+  try {
+    const { customerId } = req.params; // ✅ URLからcustomerIdを取得
+    const userId = req.user.uid;
+
+    if (!mongoose.Types.ObjectId.isValid(customerId)) {
+      return res.status(400).json({ message: "無効な顧客IDです" });
+    }
+
+    const sales = await Sales.find({
+      customerId, // ✅ 顧客IDでフィルタリング
+      assignedUserId: userId, // ✅ ログインユーザーでフィルタリング
+    }).sort({ createdAt: -1 });
+
+    res.status(200).json(sales);
+  } catch (error) {
+    console.error("案件の取得に失敗しました:", error);
+    res.status(500).json({ message: "案件の取得に失敗しました" });
   }
 };

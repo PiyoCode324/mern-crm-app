@@ -5,14 +5,20 @@ import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  // ✅ useAuthフックからisAuthReadyの状態を取得
+  const { user, isAuthReady } = useAuth();
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchSummary = async () => {
-      if (!user) return;
+      // ✅ 認証準備が完了し、ユーザーが存在する場合のみAPIを呼び出す
+      if (!user || !isAuthReady) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const data = await authorizedRequest("GET", "/sales/summary");
         setSummary(data);
@@ -25,7 +31,7 @@ const Dashboard = () => {
       }
     };
     fetchSummary();
-  }, [user]);
+  }, [user, isAuthReady]); // ✅ 依存配列にisAuthReadyを追加
 
   if (loading) {
     return <div className="text-center mt-8">読み込み中...</div>;

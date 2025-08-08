@@ -6,9 +6,7 @@ const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const admin = require("firebase-admin");
 
-const { verifyFirebaseToken } = require("./middleware/authMiddleware");
-
-// ここにルーターをインポートする
+// ルーターをインポート
 const customersRouter = require("./routes/customers");
 const usersRouter = require("./routes/users");
 const salesRoutes = require("./routes/salesRoutes");
@@ -42,11 +40,11 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json({ strict: false }));
 
-// ルーターにauthMiddlewareを適用
-app.use("/api/customers", verifyFirebaseToken, customersRouter);
-app.use("/api/users", verifyFirebaseToken, usersRouter);
-app.use("/api/sales", verifyFirebaseToken, salesRoutes);
-app.use("/api/contacts", verifyFirebaseToken, contactRoutes);
+// ✅ ルート定義：ここでミドルウェアを適用せず、各ルーターファイルに任せる
+app.use("/api/customers", customersRouter);
+app.use("/api/users", usersRouter);
+app.use("/api/sales", salesRoutes);
+app.use("/api/contacts", contactRoutes);
 
 // テスト用公開ルート
 app.get("/", (req, res) => {

@@ -2,33 +2,52 @@
 
 const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
-// const admin = require("firebase-admin"); // ✅ この行を削除
 
 // 🔹 ユーザー新規登録（Firebase認証済みのユーザーをMongoDBに登録）
 const registerUser = asyncHandler(async (req, res) => {
-  const { uid, name, email } = req.user;
-  const existingUser = await User.findOne({ uid });
+  console.log("📥 [registerUser] 新規登録リクエスト受信:", req.body);
+
+  // 💡 修正: req.body から直接 firebaseUid, email, displayName を取得
+  const { firebaseUid, email, displayName } = req.body;
+
+  if (!firebaseUid || !email) {
+    return res.status(400).json({ message: "必須情報が不足しています。" });
+  }
+
+  console.log("🔑 Firebase UID:", firebaseUid);
+  console.log("📧 Email:", email);
+  console.log("📝 Display Name:", displayName);
+
+  const existingUser = await User.findOne({ uid: firebaseUid }); // 💡 修正: uid で検索
   if (existingUser) {
+    console.log("⚠️ 既に登録済みのユーザー:", existingUser.email);
     return res
       .status(200)
       .json({ message: "既に登録済み", user: existingUser });
   }
+
   const newUser = new User({
-    uid,
-    name,
+    uid: firebaseUid, // 💡 修正: ここで firebaseUid を uid フィールドにマッピング
+    displayName,
     email,
     role: "user",
   });
+
   const savedUser = await newUser.save();
+  console.log("✅ 新規ユーザー登録完了:", savedUser._id);
+
   res.status(201).json({ message: "登録完了", user: savedUser });
 });
 
 // 🔸 ユーザー情報の取得（自身）
 const getUser = asyncHandler(async (req, res) => {
   const { uid } = req.user;
-  const user = await User.findOne({ uid });
-  if (!user)
+  const user = await User.findOne({ firebaseUid: uid });
+
+  if (!user) {
     return res.status(404).json({ message: "ユーザーが見つかりません" });
+  }
+
   res.status(200).json({ user });
 });
 
@@ -36,20 +55,30 @@ const getUser = asyncHandler(async (req, res) => {
 const updateUser = asyncHandler(async (req, res) => {
   const { uid } = req.user;
   const updates = req.body;
-  const updatedUser = await User.findOneAndUpdate({ uid }, updates, {
-    new: true,
-  });
-  if (!updatedUser)
+  const updatedUser = await User.findOneAndUpdate(
+    { firebaseUid: uid },
+    updates,
+    {
+      new: true,
+    }
+  );
+
+  if (!updatedUser) {
     return res.status(404).json({ message: "ユーザーが見つかりません" });
+  }
+
   res.status(200).json({ message: "更新完了", user: updatedUser });
 });
 
 // 🔸 ユーザー削除（自身）
 const deleteUser = asyncHandler(async (req, res) => {
   const { uid } = req.user;
-  const deletedUser = await User.findOneAndDelete({ uid });
-  if (!deletedUser)
+  const deletedUser = await User.findOneAndDelete({ firebaseUid: uid });
+
+  if (!deletedUser) {
     return res.status(404).json({ message: "ユーザーが見つかりません" });
+  }
+
   res.status(200).json({ message: "ユーザー削除完了" });
 });
 
@@ -59,12 +88,14 @@ const getUsers = asyncHandler(async (req, res) => {
   if (ids.length === 0) {
     return res.json([]);
   }
-  const users = await User.find({ uid: { $in: ids } });
+  const users = await User.find({ firebaseUid: { $in: ids } });
+
   const formattedUsers = users.map((user) => ({
-    uid: user.uid,
+    uid: user.firebaseUid,
     displayName: user.displayName,
     email: user.email,
   }));
+
   res.json(formattedUsers);
 });
 
@@ -80,10 +111,9 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
 // ✅ 新しい関数：ユーザーの役割を更新
 const updateUserRole = asyncHandler(async (req, res) => {
-  const { id } = req.params; // ルートパラメーターからユーザーIDを取得
-  const { role } = req.body; // リクエストボディから新しい役割を取得
+  const { id } = req.params;
+  const { role } = req.body;
 
-  // ユーザーが存在するか確認
   const user = await User.findById(id);
 
   if (!user) {
@@ -91,7 +121,6 @@ const updateUserRole = asyncHandler(async (req, res) => {
     throw new Error("ユーザーが見つかりません。");
   }
 
-  // 役割を更新
   user.role = role;
   await user.save();
 

@@ -14,6 +14,8 @@ import SalesPage from "../pages/SalesPage";
 import Dashboard from "../pages/Dashboard";
 import ContactForm from "../components/ContactForm";
 import AdminUserPage from "../pages/AdminUserPage";
+// ✅ パスワードリセットコンポーネントをインポート
+import PasswordReset from "../components/PasswordReset";
 
 const AppRoutes = () => {
   return (
@@ -22,6 +24,8 @@ const AppRoutes = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/contact-form" element={<FreeContactPage />} />{" "}
       {/* 公開フォームのルート */}
+      {/* ✅ パスワードリセットのルートを追加 */}
+      <Route path="/reset-password" element={<PasswordReset />} />
       {/* ログインが必要なルート */}
       <Route
         path="/"

@@ -16,11 +16,14 @@ const {
   updateUserRole,
 } = require("../controllers/userController");
 
-// Firebase認証が必要
-router.use(verifyFirebaseToken);
-
 // 🔹 初回登録（MongoDBにユーザー登録）
+// ✅ 修正: 他のルートより前に配置し、verifyFirebaseTokenをスキップさせる
 router.post("/register", registerUser);
+
+// ----------------------------------------------------
+// ✅ 以下のすべてのルートは、Firebase認証が必要
+router.use(verifyFirebaseToken);
+// ----------------------------------------------------
 
 // 🔸 現在のユーザー情報取得
 router.get("/me", getUser);

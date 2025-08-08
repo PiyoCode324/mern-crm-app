@@ -2,9 +2,20 @@
 
 const admin = require("firebase-admin");
 const dotenv = require("dotenv");
+const mongoose = require("mongoose"); // ✅ Mongooseをインポート
+const User = require("./models/User"); // ✅ Userモデルをインポート
 
 // .envファイルを読み込む
 dotenv.config();
+
+// ✅ MongoDBに接続
+mongoose
+  .connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 // 環境変数からBase64キーを読み込み、デコードする
 const serviceAccountBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_BASE64;
@@ -27,17 +38,33 @@ if (!admin.apps.length) {
 }
 
 // ユーザーのUIDをここに貼り付け
-const targetUid = "62WqtUsUCdhjSF56eQQ7zVfWbem2"; // ✅ このUIDを、コンソールログに表示されたものに置き換えてください
+const targetUid = "62WqtUsUCdhjSF56eQQ7zVfWbem2";
 
-async function setAdminClaim() {
+async function setAdminClaimAndRole() {
+  // ✅ 関数名を変更
   try {
+    // Firebaseのカスタムクレームを更新
     await admin.auth().setCustomUserClaims(targetUid, { role: "admin" });
     console.log(
       `✅ ユーザー ${targetUid} のカスタムクレームを 'admin' に設定しました。`
     );
+
+    // ✅ MongoDBのユーザー役割を更新
+    const user = await User.findOne({ uid: targetUid });
+    if (user) {
+      user.role = "admin";
+      await user.save();
+      console.log(
+        `✅ ユーザー ${targetUid} のMongoDBの役割を 'admin' に更新しました。`
+      );
+    } else {
+      console.error("❌ MongoDBにユーザーが見つかりませんでした。");
+    }
   } catch (error) {
-    console.error("❌ カスタムクレームの更新に失敗しました:", error);
+    console.error("❌ 役割の更新に失敗しました:", error);
+  } finally {
+    mongoose.connection.close(); // ✅ 処理完了後に接続を閉じる
   }
 }
 
-setAdminClaim();
+setAdminClaimAndRole(); // ✅ 更新された関数を呼び出す

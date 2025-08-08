@@ -1,11 +1,10 @@
 // backend/middleware/authMiddleware.js
 
 const admin = require("../firebaseAdmin");
-const User = require("../models/User"); // Userモデルをインポート
-const asyncHandler = require("express-async-handler"); // ✅ asyncHandlerをインポート
+const User = require("../models/User");
+const asyncHandler = require("express-async-handler");
 
 const verifyFirebaseToken = asyncHandler(async (req, res, next) => {
-  // ✅ asyncHandlerでラップ
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ message: "未認証：トークンがありません" });
@@ -15,7 +14,9 @@ const verifyFirebaseToken = asyncHandler(async (req, res, next) => {
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
-    // Firebase UIDを使用してMongoDBからユーザーを取得
+    // ✅ デバッグ用：Firebaseのデコード済みトークンの中身を確認
+    console.log("Firebase decodedToken:", decodedToken);
+
     const user = await User.findOne({ uid: decodedToken.uid });
 
     if (!user) {
@@ -24,22 +25,28 @@ const verifyFirebaseToken = asyncHandler(async (req, res, next) => {
         .json({ message: "未登録ユーザー：MongoDBにユーザー情報がありません" });
     }
 
-    // ✅ req.user に Firebaseのデコード済みトークンとMongoDBのユーザー情報を両方格納
+    // ✅ デバッグ用：MongoDBから取得したユーザーの役割を確認
+    console.log("MongoDB user role:", user.role);
+
     req.user = {
-      ...decodedToken, // FirebaseのUID, emailなど
-      _id: user._id, // MongoDBのユーザーID
-      role: user.role, // MongoDBのユーザーロール
+      ...decodedToken,
+      _id: user._id,
+      role: user.role,
     };
     next();
   } catch (err) {
     console.error("Firebase トークン検証エラー:", err.message);
-    // Firebaseトークンが無効な場合や期限切れの場合
     return res.status(401).json({ message: "未認証：トークンが無効です" });
   }
 });
 
-// ✅ 新しいミドルウェア：管理者権限のチェック
 const isAdmin = (req, res, next) => {
+  // ✅ デバッグ用：isAdminミドルウェアがチェックしている役割を確認
+  console.log(
+    "isAdmin check on req.user.role:",
+    req.user ? req.user.role : "ユーザー情報なし"
+  );
+
   if (req.user && req.user.role === "admin") {
     next();
   } else {
@@ -47,7 +54,6 @@ const isAdmin = (req, res, next) => {
   }
 };
 
-// ✅ isAdminをエクスポートに追加
 module.exports = {
   verifyFirebaseToken,
   isAdmin,

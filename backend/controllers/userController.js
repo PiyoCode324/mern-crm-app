@@ -78,6 +78,26 @@ const getAllUsers = asyncHandler(async (req, res) => {
   }
 });
 
+// ✅ 新しい関数：ユーザーの役割を更新
+const updateUserRole = asyncHandler(async (req, res) => {
+  const { id } = req.params; // ルートパラメーターからユーザーIDを取得
+  const { role } = req.body; // リクエストボディから新しい役割を取得
+
+  // ユーザーが存在するか確認
+  const user = await User.findById(id);
+
+  if (!user) {
+    res.status(404);
+    throw new Error("ユーザーが見つかりません。");
+  }
+
+  // 役割を更新
+  user.role = role;
+  await user.save();
+
+  res.status(200).json({ message: "ユーザーの役割が更新されました。", user });
+});
+
 module.exports = {
   registerUser,
   getUser,
@@ -85,4 +105,5 @@ module.exports = {
   deleteUser,
   getUsers,
   getAllUsers,
+  updateUserRole,
 };

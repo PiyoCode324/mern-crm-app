@@ -13,6 +13,7 @@ const {
   deleteUser,
   getUsers,
   getAllUsers,
+  updateUserRole,
 } = require("../controllers/userController");
 
 // Firebase認証が必要
@@ -35,5 +36,8 @@ router.get("/", getUsers);
 
 // ✅ 新しいルート：管理者専用で、すべてのユーザーを取得
 router.get("/all", isAdmin, getAllUsers);
+
+// ✅ 新しいルート：管理者専用で、ユーザーの役割を更新
+router.put("/:id/role", isAdmin, updateUserRole);
 
 module.exports = router;

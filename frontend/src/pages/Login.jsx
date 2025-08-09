@@ -68,6 +68,15 @@ export default function Login() {
         >
           ログイン
         </button>
+        {/* ✅ パスワードリセットへのリンクを追加 */}
+        <p className="mt-4 text-center">
+          <Link
+            to="/password-reset"
+            className="text-sm text-blue-600 underline"
+          >
+            パスワードをお忘れですか？
+          </Link>
+        </p>
         <p className="mt-4">
           アカウントをお持ちでない方は{" "}
           <Link to="/register" className="text-blue-600 underline">

@@ -38,7 +38,7 @@ if (!admin.apps.length) {
 }
 
 // ユーザーのUIDをここに貼り付け
-const targetUid = "62WqtUsUCdhjSF56eQQ7zVfWbem2";
+const targetUid = "WzwMXMJFA0NuMsPjKOmkzzPgeFx2";
 
 async function setAdminClaimAndRole() {
   // ✅ 関数名を変更

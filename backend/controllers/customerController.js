@@ -114,3 +114,14 @@ exports.deleteCustomer = async (req, res) => {
     res.status(500).json({ message: "顧客情報の削除に失敗しました" });
   }
 };
+
+// 全顧客取得（認証ユーザー問わず全件取得、管理者用に認可を後で追加可能）
+exports.getAllCustomers = async (req, res) => {
+  try {
+    const customers = await Customer.find({}).sort({ createdAt: -1 });
+    res.status(200).json({ customers });
+  } catch (error) {
+    console.error("❌ 全顧客取得エラー:", error);
+    res.status(500).json({ message: error.message });
+  }
+};

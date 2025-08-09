@@ -5,6 +5,7 @@ const router = express.Router();
 const { verifyFirebaseToken } = require("../middleware/authMiddleware");
 const {
   getCustomers, // ✅ 修正: getAllCustomersからgetCustomersに変更
+  getAllCustomers,
   createCustomer,
   updateCustomer,
   deleteCustomer,
@@ -16,6 +17,9 @@ router.use(verifyFirebaseToken);
 
 // 📄 全顧客情報取得（ログインユーザーの顧客のみ）
 router.get("/", getCustomers);
+
+// 追加：認証ユーザーが全顧客を取得できるエンドポイント
+router.get("/all", getAllCustomers);
 
 // 🔹 顧客新規登録
 router.post("/", createCustomer);

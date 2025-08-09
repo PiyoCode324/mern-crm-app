@@ -1,6 +1,6 @@
 // src/context/AuthContext.jsx
 import { createContext, useEffect, useState, useContext } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../firebase/config";
 import { logout as apiLogout } from "../services/authService";
 import api from "../utils/api";
@@ -8,11 +8,11 @@ import api from "../utils/api";
 const AuthContext = createContext();
 
 const AuthProvider = ({ children }) => {
+  // ✅ ローディング状態をtrueで初期化し、認証確認が完了するまで待機する
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  // ✅ 認証状態の準備ができたかを示す新しい状態
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
@@ -44,8 +44,8 @@ const AuthProvider = ({ children }) => {
 
         console.log("❌ AuthContext: ユーザーはログアウトしました");
       }
+      // ✅ 認証状態が確定したら、loadingとisAuthReadyを更新
       setLoading(false);
-      // ✅ 認証状態の準備が完了したことを設定
       setIsAuthReady(true);
     });
 
@@ -60,7 +60,17 @@ const AuthProvider = ({ children }) => {
     }
   };
 
-  // ✅ isAuthReadyをvalueに追加
+  const handlePasswordReset = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      console.log("✅ パスワードリセットメールを送信しました");
+      return { success: true };
+    } catch (error) {
+      console.error("❌ パスワードリセットエラー:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
   const value = {
     user,
     token,
@@ -68,12 +78,12 @@ const AuthProvider = ({ children }) => {
     loading,
     isAuthReady,
     logout: handleLogout,
+    passwordReset: handlePasswordReset,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// 💡 修正: ここに registerUserInBackend 関数を移動
 const registerUserInBackend = async (idToken, userData) => {
   try {
     console.log("🚀 バックエンドへの登録開始:", userData);
@@ -84,10 +94,9 @@ const registerUserInBackend = async (idToken, userData) => {
     });
     console.log("✅ バックエンドへの登録成功:", res.data);
 
-    // 登録成功後、FirebaseのIDトークンを再取得してカスタムクレームを反映
     const firebaseUser = auth.currentUser;
     if (firebaseUser) {
-      await firebaseUser.getIdToken(true); // 強制的にトークンを更新
+      await firebaseUser.getIdToken(true);
       console.log("✅ IDトークンの強制更新成功");
     }
   } catch (error) {
@@ -99,7 +108,7 @@ const registerUserInBackend = async (idToken, userData) => {
     } else {
       console.error("⚠️ エラー詳細:", error.response?.data?.message);
     }
-    throw error; // エラーを再スローしてRegister.jsxでキャッチ
+    throw error;
   }
 };
 

@@ -1,6 +1,6 @@
 // src/pages/ProfilePage.jsx
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   getAuth,
   signOut,
@@ -12,10 +12,17 @@ import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
 
 const ProfilePage = () => {
-  const { user: firebaseUser, token, setToken, logout } = useAuth(); // ✅ logout関数を取得
+  const { user: firebaseUser, token, setToken, logout } = useAuth();
   const [profile, setProfile] = useState(null);
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState("");
+  const [updateSuccess, setUpdateSuccess] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
   const auth = getAuth();
 
@@ -27,7 +34,6 @@ const ProfilePage = () => {
         return;
       }
       try {
-        await authorizedRequest("POST", "/users/register", null, token);
         const res = await authorizedRequest("GET", "/users/me", token);
         setProfile(res.user);
         setDisplayName(res.user.displayName || "");
@@ -55,13 +61,18 @@ const ProfilePage = () => {
   };
 
   const handleUpdate = async () => {
+    setUpdateError("");
+    setUpdateSuccess("");
+    setIsUpdating(true);
+
     try {
       if (!firebaseUser) {
         throw new Error("ユーザー情報がありません");
       }
 
       if (displayName === profile.displayName || !displayName.trim()) {
-        alert("変更がありません。または、表示名が空です。");
+        setUpdateError("変更がありません。または、表示名が空です。");
+        setIsUpdating(false);
         return;
       }
 
@@ -69,33 +80,43 @@ const ProfilePage = () => {
       const res = await authorizedRequest("PUT", "/users/me", { displayName });
 
       setProfile(res.user);
-      alert("プロフィールを更新しました");
+      setUpdateSuccess("プロフィールを更新しました");
     } catch (err) {
       console.error("更新エラー", err);
-      alert(
+      setUpdateError(
         "更新に失敗しました: " + (err.response?.data?.message || err.message)
       );
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  const handleDelete = async () => {
-    const confirmDelete = window.confirm("本当にアカウントを削除しますか？");
-    if (!confirmDelete) return;
+  const handleOpenDeleteModal = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeletePassword("");
+    setDeleteError("");
+  };
+
+  const handleConfirmDelete = async () => {
+    setDeleteError("");
+    setIsDeleting(true);
 
     try {
       if (!firebaseUser || !token) {
         throw new Error("ユーザーまたはトークンがありません");
       }
 
-      const password = window.prompt(
-        "操作を続行するにはパスワードを再入力してください"
-      );
-      if (!password) {
-        alert("パスワードが入力されませんでした。操作を中止します。");
+      if (!deletePassword) {
+        setDeleteError("パスワードを入力してください。");
+        setIsDeleting(false);
         return;
       }
 
-      await reauthenticate(password);
+      await reauthenticate(deletePassword);
       await authorizedRequest("DELETE", "/users/me");
       await firebaseUser.delete();
 
@@ -108,15 +129,19 @@ const ProfilePage = () => {
       navigate("/login");
     } catch (err) {
       console.error("削除エラー", err);
-      if (err.code === "auth/requires-recent-login") {
-        alert(
-          "操作のために再ログインが必要です。ログアウトしてから再度ログインしてください。"
+      if (err.code === "auth/wrong-password") {
+        setDeleteError("パスワードが間違っています。");
+      } else if (err.code === "auth/requires-recent-login") {
+        setDeleteError(
+          "セキュリティ保護のため、最近ログインしたアカウントでのみ削除が可能です。一度ログアウトし、再度ログインしてからお試しください。"
         );
         await signOut(auth);
         navigate("/login");
       } else {
-        alert("削除に失敗しました: " + err.message);
+        setDeleteError("削除に失敗しました: " + err.message);
       }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -173,29 +198,77 @@ const ProfilePage = () => {
           />
         </div>
 
-        <div className="flex justify-between items-center mt-6">
+        <button
+          onClick={handleUpdate}
+          className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors mb-4"
+          disabled={isUpdating}
+        >
+          {isUpdating ? "更新中..." : "更新"}
+        </button>
+        {updateSuccess && (
+          <p className="text-green-600 text-center mb-4">{updateSuccess}</p>
+        )}
+        {updateError && (
+          <p className="text-red-600 text-center mb-4">{updateError}</p>
+        )}
+
+        <div className="flex flex-col space-y-4">
           <button
-            onClick={handleUpdate}
-            className="w-2/5 bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            更新
-          </button>
-          <button
-            onClick={handleDelete}
-            className="w-2/5 bg-transparent text-red-600 font-bold py-3 rounded-lg border border-red-600 hover:bg-red-100 transition-colors"
+            onClick={handleOpenDeleteModal}
+            className="w-full bg-transparent text-red-600 font-bold py-3 rounded-lg border border-red-600 hover:bg-red-100 transition-colors"
           >
             アカウント削除
           </button>
+          <button
+            onClick={handleLogout}
+            className="w-full bg-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            ログアウト
+          </button>
         </div>
-
-        {/* ✅ ログアウトボタンを追加 */}
-        <button
-          onClick={handleLogout}
-          className="mt-4 w-full bg-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-700 transition-colors"
-        >
-          ログアウト
-        </button>
       </div>
+
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+            <h3 className="text-lg font-bold text-center mb-4">
+              アカウントを削除しますか？
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              この操作は元に戻せません。続行するには、パスワードを再入力してください。
+            </p>
+            <input
+              type="password"
+              placeholder="パスワード"
+              className="w-full p-2 mb-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              disabled={isDeleting}
+            />
+            {deleteError && (
+              <p className="text-red-500 text-sm mb-4 text-center">
+                {deleteError}
+              </p>
+            )}
+            <div className="flex justify-between space-x-4">
+              <button
+                onClick={handleCloseDeleteModal}
+                className="w-1/2 py-2 px-4 rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
+                disabled={isDeleting}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="w-1/2 py-2 px-4 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+                disabled={isDeleting}
+              >
+                {isDeleting ? "削除中..." : "削除"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

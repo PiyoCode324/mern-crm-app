@@ -1,5 +1,4 @@
 // src/pages/Register.jsx
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
@@ -7,7 +6,7 @@ import { auth } from "../firebase/config";
 import { registerUserInBackend } from "../context/AuthContext";
 
 function Register() {
-  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -17,7 +16,7 @@ function Register() {
     e.preventDefault();
     setError("");
 
-    if (!username || !email || !password) {
+    if (!displayName || !email || !password) {
       setError("すべてのフィールドを入力してください。");
       return;
     }
@@ -32,11 +31,11 @@ function Register() {
       const user = userCredential.user;
       console.log("✅ Firebase登録成功:", userCredential);
 
-      await updateProfile(user, { displayName: username });
+      await updateProfile(user, { displayName: displayName });
       console.log("✅ 表示名を Firebase ユーザーに設定");
 
       const userData = {
-        firebaseUid: user.uid,
+        uid: user.uid,
         email: user.email,
         displayName: user.displayName,
       };
@@ -46,7 +45,10 @@ function Register() {
 
       await registerUserInBackend(idToken, userData);
 
-      navigate("/dashboard");
+      // 💡 修正: 登録後、ログイン画面にリダイレクト
+      // ユーザーはここでログアウト状態になる
+      await auth.signOut();
+      navigate("/login");
     } catch (error) {
       console.error("❌ Firebase 登録エラー:", error);
       setError(error.message);
@@ -60,11 +62,11 @@ function Register() {
         {error && <p className="text-red-500 text-center">{error}</p>}
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
-            <label className="block mb-1 text-sm font-medium">ユーザー名</label>
+            <label className="block mb-1 text-sm font-medium">表示名</label>
             <input
               type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
               required
               className="w-full px-3 py-2 border rounded"
             />

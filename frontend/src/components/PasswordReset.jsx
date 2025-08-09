@@ -1,76 +1,131 @@
 // src/components/PasswordReset.jsx
-
 import React, { useState } from "react";
-import { toast } from "react-toastify";
-import axios from "axios";
+import { useAuth } from "../context/AuthContext";
 
 const PasswordReset = () => {
+  const { passwordReset } = useAuth();
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isError, setIsError] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  // メールアドレスの形式をチェックする正規表現
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    try {
-      // バックエンドのパスワードリセットAPIを呼び出す
-      await axios.post(
-        "http://localhost:5000/api/auth/request-password-reset",
-        { email }
-      );
+  const handleEmailChange = (e) => {
+    const newEmail = e.target.value;
+    setEmail(newEmail);
 
-      // 成功メッセージを表示
-      toast.success(
-        "パスワードリセットのメールを送信しました。メールをご確認ください。"
-      );
-      setEmail("");
-    } catch (error) {
-      // エラーメッセージを表示
-      const errorMessage =
-        error.response?.data?.message || "パスワードリセットに失敗しました。";
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
+    // ✅ 入力ごとにバリデーションを実行
+    if (newEmail === "") {
+      setEmailError("");
+    } else if (!emailRegex.test(newEmail)) {
+      setEmailError("無効なメールアドレス形式です。");
+    } else {
+      setEmailError("");
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage("");
+    setIsError(false);
+    setEmailError("");
+
+    // ✅ 送信前に最終的なバリデーション
+    if (!emailRegex.test(email)) {
+      setEmailError("有効なメールアドレスを入力してください。");
+      return;
+    }
+
+    try {
+      const result = await passwordReset(email);
+      if (result.success) {
+        setMessage(
+          "✅ パスワードリセットメールを送信しました。メールをご確認ください。"
+        );
+      } else {
+        setIsError(true);
+        // Firebaseからのエラーメッセージを日本語に変換して表示
+        if (result.error.includes("auth/user-not-found")) {
+          setMessage("❌ このメールアドレスのユーザーは存在しません。");
+        } else {
+          setMessage(`❌ パスワードリセットに失敗しました: ${result.error}`);
+        }
+      }
+    } catch (err) {
+      setIsError(true);
+      setMessage("❌ パスワードリセット中に予期せぬエラーが発生しました。");
+    }
+  };
+
+  // ✅ 有効なメールアドレスが入力されるまでボタンを無効にする
+  const isButtonDisabled = !emailRegex.test(email);
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg">
-        <h2 className="text-3xl font-bold text-center text-gray-900">
-          パスワードリセット
+    <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
+        <h2 className="text-3xl font-bold text-center mb-6 text-gray-800">
+          パスワードをリセットする
         </h2>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
+        <p className="text-center text-gray-600 mb-6">
+          登録済みのメールアドレスを入力してください。
+          <br />
+          パスワードリセット用のメールを送信します。
+        </p>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
             <label
               htmlFor="email"
-              className="block text-sm font-medium text-gray-700"
+              className="block text-gray-700 font-bold mb-2"
             >
               メールアドレス
             </label>
-            <div className="mt-1">
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              />
-            </div>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={handleEmailChange}
+              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                emailError
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-indigo-500"
+              }`}
+              required
+              aria-label="メールアドレス"
+            />
+            {emailError && (
+              <p className="text-red-500 text-sm mt-2">{emailError}</p>
+            )}
           </div>
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-            >
-              {loading ? "送信中..." : "パスワードリセットのリンクを送信"}
-            </button>
-          </div>
+          <button
+            type="submit"
+            className={`w-full font-bold py-3 px-4 rounded-lg transition duration-200 ${
+              isButtonDisabled
+                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                : "bg-indigo-600 text-white hover:bg-indigo-700"
+            }`}
+            disabled={isButtonDisabled}
+          >
+            パスワードをリセットする
+          </button>
         </form>
+        {message && (
+          <div
+            className={`mt-4 p-4 rounded-lg text-center ${
+              isError
+                ? "bg-red-100 text-red-700"
+                : "bg-green-100 text-green-700"
+            }`}
+          >
+            {message}
+          </div>
+        )}
+        <div className="mt-6 text-center">
+          <a href="/login" className="text-indigo-600 hover:underline">
+            ログインページに戻る
+          </a>
+        </div>
       </div>
     </div>
   );

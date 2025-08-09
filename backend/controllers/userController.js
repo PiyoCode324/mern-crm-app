@@ -1,5 +1,3 @@
-// backend/controllers/userController.js
-
 const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
 
@@ -7,18 +5,17 @@ const asyncHandler = require("express-async-handler");
 const registerUser = asyncHandler(async (req, res) => {
   console.log("📥 [registerUser] 新規登録リクエスト受信:", req.body);
 
-  // 💡 修正: req.body から直接 firebaseUid, email, displayName を取得
-  const { firebaseUid, email, displayName } = req.body;
+  const { uid, email, displayName } = req.body;
 
-  if (!firebaseUid || !email) {
+  if (!uid || !email) {
     return res.status(400).json({ message: "必須情報が不足しています。" });
   }
 
-  console.log("🔑 Firebase UID:", firebaseUid);
+  console.log("🔑 Firebase UID:", uid);
   console.log("📧 Email:", email);
   console.log("📝 Display Name:", displayName);
 
-  const existingUser = await User.findOne({ uid: firebaseUid }); // 💡 修正: uid で検索
+  const existingUser = await User.findOne({ uid: uid });
   if (existingUser) {
     console.log("⚠️ 既に登録済みのユーザー:", existingUser.email);
     return res
@@ -27,7 +24,7 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   const newUser = new User({
-    uid: firebaseUid, // 💡 修正: ここで firebaseUid を uid フィールドにマッピング
+    uid,
     displayName,
     email,
     role: "user",
@@ -40,9 +37,9 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 // 🔸 ユーザー情報の取得（自身）
-const getUser = asyncHandler(async (req, res) => {
+const getMe = asyncHandler(async (req, res) => {
   const { uid } = req.user;
-  const user = await User.findOne({ firebaseUid: uid });
+  const user = await User.findOne({ uid: uid });
 
   if (!user) {
     return res.status(404).json({ message: "ユーザーが見つかりません" });
@@ -55,13 +52,9 @@ const getUser = asyncHandler(async (req, res) => {
 const updateUser = asyncHandler(async (req, res) => {
   const { uid } = req.user;
   const updates = req.body;
-  const updatedUser = await User.findOneAndUpdate(
-    { firebaseUid: uid },
-    updates,
-    {
-      new: true,
-    }
-  );
+  const updatedUser = await User.findOneAndUpdate({ uid: uid }, updates, {
+    new: true,
+  });
 
   if (!updatedUser) {
     return res.status(404).json({ message: "ユーザーが見つかりません" });
@@ -73,7 +66,7 @@ const updateUser = asyncHandler(async (req, res) => {
 // 🔸 ユーザー削除（自身）
 const deleteUser = asyncHandler(async (req, res) => {
   const { uid } = req.user;
-  const deletedUser = await User.findOneAndDelete({ firebaseUid: uid });
+  const deletedUser = await User.findOneAndDelete({ uid: uid });
 
   if (!deletedUser) {
     return res.status(404).json({ message: "ユーザーが見つかりません" });
@@ -88,10 +81,10 @@ const getUsers = asyncHandler(async (req, res) => {
   if (ids.length === 0) {
     return res.json([]);
   }
-  const users = await User.find({ firebaseUid: { $in: ids } });
+  const users = await User.find({ uid: { $in: ids } });
 
   const formattedUsers = users.map((user) => ({
-    uid: user.firebaseUid,
+    uid: user.uid,
     displayName: user.displayName,
     email: user.email,
   }));
@@ -102,6 +95,17 @@ const getUsers = asyncHandler(async (req, res) => {
 // ✅ 管理者専用：すべてのユーザーを取得するコントローラー
 const getAllUsers = asyncHandler(async (req, res) => {
   const users = await User.find({}).select("-password");
+  if (users) {
+    res.status(200).json({ users });
+  } else {
+    res.status(404).json({ message: "ユーザーが見つかりません。" });
+  }
+});
+
+// 🔹 認証ユーザー向け：必要最低限の情報のみ返す安全なユーザー一覧取得
+const getUsersBasic = asyncHandler(async (req, res) => {
+  // 例: uid, displayName, role のみ返す
+  const users = await User.find({}).select("uid displayName role");
   if (users) {
     res.status(200).json({ users });
   } else {
@@ -129,10 +133,11 @@ const updateUserRole = asyncHandler(async (req, res) => {
 
 module.exports = {
   registerUser,
-  getUser,
+  getMe,
   updateUser,
   deleteUser,
   getUsers,
   getAllUsers,
+  getUsersBasic,  // ← ここを追加
   updateUserRole,
 };

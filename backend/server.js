@@ -6,15 +6,17 @@ const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 const admin = require("firebase-admin");
 
-// ルーターをインポート
+// ルーター
 const customersRouter = require("./routes/customers");
 const usersRouter = require("./routes/users");
 const salesRoutes = require("./routes/salesRoutes");
 const contactRoutes = require("./routes/contactRoutes");
+const taskRoutes = require("./routes/taskRoutes");
+const notificationRoutes = require("./routes/notifications");
 
 dotenv.config();
 
-// 環境変数からBase64キーを読み込み、デコードする
+// Firebaseサービスアカウントキー読み込み
 const serviceAccountBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_BASE64;
 if (!serviceAccountBase64) {
   console.error(
@@ -26,7 +28,6 @@ const serviceAccount = JSON.parse(
   Buffer.from(serviceAccountBase64, "base64").toString("utf-8")
 );
 
-// Firebase Admin SDKが初期化済みでない場合のみ初期化
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
@@ -40,18 +41,19 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json({ strict: false }));
 
-// ✅ ルート定義：ここでミドルウェアを適用せず、各ルーターファイルに任せる
+// ルート定義
 app.use("/api/customers", customersRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/sales", salesRoutes);
 app.use("/api/contacts", contactRoutes);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/notifications", notificationRoutes);
 
-// テスト用公開ルート
 app.get("/", (req, res) => {
-  res.send("🎉 Backend API is running (CommonJS)");
+  res.send("🎉 Backend API is running (MongoDB Notifications Only)");
 });
 
-// MongoDB 接続とサーバー起動は変更なし
+// MongoDB接続
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);

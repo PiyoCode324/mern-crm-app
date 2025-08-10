@@ -37,6 +37,11 @@ const salesSchema = new Schema(
       type: String,
       trim: true,
     },
+    // ✅ dueDateフィールドを追加
+    dueDate: {
+      type: Date,
+      required: false, // 必須ではないとします
+    },
   },
   {
     timestamps: true, // ✅ 作成日時と更新日時を自動で記録

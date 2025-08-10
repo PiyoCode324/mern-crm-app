@@ -103,6 +103,21 @@ const TasksPage = () => {
     }
   }, [isAuthReady, currentUser]);
 
+  // --- 通知を既読にする関数 ---
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      console.log(`🔔 通知を既読にします: id=${notificationId}`);
+      await authorizedRequest("patch", `/notifications/${notificationId}/read`);
+
+      // 成功したら、ローカルの通知リストから該当の通知を削除してUIを更新
+      setNotifications((prevNotes) =>
+        prevNotes.filter((note) => note._id !== notificationId)
+      );
+    } catch (err) {
+      console.error("通知を既読にする処理に失敗しました", err);
+    }
+  };
+
   // --- 操作 ---
   const handleTaskAction = () => {
     fetchTasks();
@@ -199,11 +214,22 @@ const TasksPage = () => {
         {notifications.length > 0 ? (
           <ul className="list-disc list-inside max-h-48 overflow-auto">
             {notifications.map((note) => (
-              <li key={note._id} className="mb-1">
-                {note.message}{" "}
-                <span className="text-sm text-gray-500">
-                  ({new Date(note.createdAt).toLocaleString()})
+              <li
+                key={note._id}
+                className="mb-1 flex items-center justify-between"
+              >
+                <span>
+                  {note.message}{" "}
+                  <span className="text-sm text-gray-500">
+                    ({new Date(note.createdAt).toLocaleString()})
+                  </span>
                 </span>
+                <button
+                  onClick={() => handleMarkAsRead(note._id)}
+                  className="ml-4 text-xs text-white bg-green-500 px-2 py-1 rounded hover:bg-green-600 transition-colors"
+                >
+                  既読
+                </button>
               </li>
             ))}
           </ul>

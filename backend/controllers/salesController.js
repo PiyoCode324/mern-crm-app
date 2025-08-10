@@ -2,163 +2,204 @@
 
 const Sales = require("../models/Sales");
 const mongoose = require("mongoose");
+const asyncHandler = require("express-async-handler");
 
-// 🔹 営業案件を新規登録
-exports.createSale = async (req, res) => {
-  try {
-    const { dealName, customerId, amount, status, notes } = req.body;
+// ✅ 新しい案件を作成する関数
+exports.createSale = asyncHandler(async (req, res) => {
+  const { dealName, customerId, amount, status, notes, dueDate } = req.body;
+  const assignedUserId = req.user.uid;
 
-    const newSale = new Sales({
-      dealName,
-      customerId,
-      amount,
-      status,
-      notes,
-      // ✅ セキュリティ強化: assignedUserIdは常にログインユーザーのIDを使用
-      assignedUserId: req.user.uid,
-    });
-
-    const savedSale = await newSale.save();
-    res.status(201).json(savedSale);
-  } catch (error) {
-    console.error("❌ 案件登録エラー:", error);
-    res
-      .status(400)
-      .json({ message: "案件の登録に失敗しました", error: error.message });
+  if (!dealName || !customerId || !amount) {
+    res.status(400);
+    throw new Error("必要な項目が不足しています");
   }
-};
+
+  const sale = await Sales.create({
+    dealName,
+    customerId,
+    amount,
+    status,
+    notes,
+    assignedUserId,
+    dueDate: dueDate ? new Date(dueDate) : null,
+  });
+
+  res.status(201).json(sale);
+});
 
 // 📄 ログインユーザーに紐づくすべての営業案件を取得
-exports.getSales = async (req, res) => {
-  try {
-    // ✅ ログインユーザーのIDでフィルタリング
-    const sales = await Sales.find({ assignedUserId: req.user.uid }).sort({
-      createdAt: -1,
-    });
-    res.status(200).json(sales);
-  } catch (error) {
-    console.error("❌ 案件取得エラー:", error);
-    res
-      .status(500)
-      .json({ message: "案件の取得に失敗しました", error: error.message });
+exports.getSales = asyncHandler(async (req, res) => {
+  const sales = await Sales.find({ assignedUserId: req.user.uid }).sort({
+    createdAt: -1,
+  });
+  res.status(200).json(sales);
+});
+
+// ✅ 案件を更新する関数
+exports.updateSale = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { dealName, customerId, amount, status, notes, dueDate } = req.body;
+  const assignedUserId = req.user.uid;
+
+  const sale = await Sales.findById(id);
+
+  if (!sale) {
+    res.status(404);
+    throw new Error("案件が見つかりません");
   }
-};
 
-// ✏️ 特定の営業案件を更新
-exports.updateSale = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const updatedSale = await Sales.findOneAndUpdate(
-      // ✅ 案件IDと担当者IDでフィルタリング
-      { _id: id, assignedUserId: req.user.uid },
-      req.body,
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedSale) {
-      return res
-        .status(404)
-        .json({ message: "対象の案件が見つかりませんでした。" });
-    }
-
-    res.status(200).json({ message: "案件を更新しました", updatedSale });
-  } catch (error) {
-    console.error("❌ 案件更新エラー:", error);
-    res
-      .status(400)
-      .json({ message: "案件の更新に失敗しました", error: error.message });
+  // 担当ユーザー以外は更新できないようにする
+  if (sale.assignedUserId !== assignedUserId) {
+    res.status(403);
+    throw new Error("権限がありません");
   }
-};
+
+  sale.dealName = dealName || sale.dealName;
+  sale.customerId = customerId || sale.customerId;
+  sale.amount = amount || sale.amount;
+  sale.status = status || sale.status;
+  sale.notes = notes || sale.notes;
+  sale.dueDate = dueDate ? new Date(dueDate) : null;
+
+  const updatedSale = await sale.save();
+  res.status(200).json(updatedSale);
+});
 
 // 🗑️ 特定の営業案件を削除
-exports.deleteSale = async (req, res) => {
-  try {
-    const { id } = req.params;
+exports.deleteSale = asyncHandler(async (req, res) => {
+  const { id } = req.params;
 
-    const deletedSale = await Sales.findOneAndDelete({
-      // ✅ 案件IDと担当者IDでフィルタリング
-      _id: id,
-      assignedUserId: req.user.uid,
-    });
+  const deletedSale = await Sales.findOneAndDelete({
+    _id: id,
+    assignedUserId: req.user.uid,
+  });
 
-    if (!deletedSale) {
-      return res
-        .status(404)
-        .json({ message: "対象の案件が見つかりませんでした。" });
-    }
-
-    res.status(200).json({ message: "案件を削除しました" });
-  } catch (error) {
-    console.error("❌ 案件削除エラー:", error);
-    res
-      .status(500)
-      .json({ message: "案件の削除に失敗しました", error: error.message });
+  if (!deletedSale) {
+    res.status(404);
+    throw new Error("対象の案件が見つかりませんでした。");
   }
-};
 
-// 営業案件のサマリーを取得する関数
-exports.getSalesSummary = async (req, res) => {
-  try {
-    const userId = req.user.uid;
+  res.status(200).json({ message: "案件を削除しました" });
+});
 
-    // パイプラインを定義
-    const summary = await Sales.aggregate([
-      // 1. ログインユーザーの案件のみをフィルタリング
-      { $match: { assignedUserId: userId } },
-      // 2. 案件を集計
-      {
-        $group: {
-          _id: null,
-          totalSales: { $sum: "$amount" }, // 全案件の金額を合計
-          totalDeals: { $sum: 1 }, // 案件数をカウント
+// ✅ 営業案件のサマリーを取得する関数 (最終修正版)
+exports.getSalesSummary = asyncHandler(async (req, res) => {
+  const userId = req.user.uid;
+
+  // 1. ステータスごとの集計パイプラインを実行
+  const statusSummary = await Sales.aggregate([
+    { $match: { assignedUserId: userId } },
+    {
+      $group: {
+        _id: "$status",
+        count: { $sum: 1 },
+        totalAmount: { $sum: "$amount" },
+      },
+    },
+    {
+      $project: {
+        status: "$_id",
+        _id: 0,
+        count: 1,
+        totalAmount: 1,
+      },
+    },
+  ]);
+
+  // 2. 顧客別の売上集計
+  const customerSales = await Sales.aggregate([
+    { $match: { assignedUserId: userId } },
+    {
+      $group: {
+        _id: "$customerId",
+        totalAmount: { $sum: "$amount" },
+        dealCount: { $sum: 1 },
+      },
+    },
+    {
+      $lookup: {
+        from: "customers",
+        localField: "_id",
+        foreignField: "_id",
+        as: "customerDetails",
+      },
+    },
+    {
+      $unwind: "$customerDetails",
+    },
+    {
+      $project: {
+        _id: 0,
+        customerName: "$customerDetails.companyName",
+        totalAmount: 1,
+        dealCount: 1,
+      },
+    },
+    { $sort: { totalAmount: -1 } },
+  ]);
+
+  // 3. 全体サマリーの集計
+  const totalSummary = await Sales.aggregate([
+    { $match: { assignedUserId: userId } },
+    {
+      $group: {
+        _id: null,
+        totalSales: { $sum: "$amount" },
+        totalDeals: { $sum: 1 },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        totalSales: 1,
+        totalDeals: 1,
+        averageDealValue: {
+          $divide: ["$totalSales", "$totalDeals"],
         },
       },
-      // 3. 平均金額を計算
-      {
-        $project: {
-          _id: 0,
-          totalSales: 1,
-          totalDeals: 1,
-          averageDealValue: { $divide: ["$totalSales", "$totalDeals"] },
-        },
-      },
-    ]);
+    },
+  ]);
 
-    // サマリーデータが存在しない場合はデフォルト値を返す
-    if (summary.length === 0) {
-      return res.status(200).json({
-        totalSales: 0,
-        totalDeals: 0,
-        averageDealValue: 0,
-      });
-    }
+  // 4. 期限が近い案件の取得 (7日以内)
+  const now = new Date();
+  const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const upcomingDeals = await Sales.find({
+    assignedUserId: userId,
+    dueDate: { $gte: now, $lte: sevenDaysFromNow },
+    status: { $ne: "契約済" },
+  }).sort({ dueDate: 1 });
 
-    res.status(200).json(summary[0]);
-  } catch (error) {
-    console.error("売上サマリーの取得に失敗しました:", error);
-    res.status(500).json({ message: "売上サマリーの取得に失敗しました" });
-  }
-};
+  const summary =
+    totalSummary.length > 0
+      ? totalSummary[0]
+      : {
+          totalSales: 0,
+          totalDeals: 0,
+          averageDealValue: 0,
+        };
+
+  res.status(200).json({
+    ...summary,
+    statusSummary,
+    customerSales,
+    upcomingDeals,
+  });
+});
 
 // 特定の顧客に紐づく案件を取得する関数
-exports.getSalesByCustomerId = async (req, res) => {
-  try {
-    const { customerId } = req.params; // ✅ URLからcustomerIdを取得
-    const userId = req.user.uid;
+exports.getSalesByCustomerId = asyncHandler(async (req, res) => {
+  const { customerId } = req.params;
+  const userId = req.user.uid;
 
-    if (!mongoose.Types.ObjectId.isValid(customerId)) {
-      return res.status(400).json({ message: "無効な顧客IDです" });
-    }
-
-    const sales = await Sales.find({
-      customerId, // ✅ 顧客IDでフィルタリング
-      assignedUserId: userId, // ✅ ログインユーザーでフィルタリング
-    }).sort({ createdAt: -1 });
-
-    res.status(200).json(sales);
-  } catch (error) {
-    console.error("案件の取得に失敗しました:", error);
-    res.status(500).json({ message: "案件の取得に失敗しました" });
+  if (!mongoose.Types.ObjectId.isValid(customerId)) {
+    res.status(400);
+    throw new Error("無効な顧客IDです");
   }
-};
+
+  const sales = await Sales.find({
+    customerId,
+    assignedUserId: userId,
+  }).sort({ createdAt: -1 });
+
+  res.status(200).json(sales);
+});

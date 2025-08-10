@@ -16,6 +16,7 @@ const SalesPage = () => {
     amount: "",
     status: "見込み",
     notes: "",
+    dueDate: "", // ✅ dueDateを追加
   });
   const [editingId, setEditingId] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -25,7 +26,6 @@ const SalesPage = () => {
   const fetchCustomers = useCallback(async () => {
     if (!user || !token) return;
     try {
-      // ✅ authorizedRequestの引数からtokenを削除
       const res = await authorizedRequest("GET", "/customers");
       if (Array.isArray(res)) {
         setCustomers(res);
@@ -42,7 +42,6 @@ const SalesPage = () => {
       return;
     }
     try {
-      // ✅ authorizedRequestの引数からtokenを削除
       const res = await authorizedRequest("GET", "/sales");
       if (Array.isArray(res)) {
         setSales(res);
@@ -87,11 +86,9 @@ const SalesPage = () => {
     }
     try {
       if (editingId) {
-        // ✅ authorizedRequestの引数からtokenを削除
         await authorizedRequest("PUT", `/sales/${editingId}`, form);
         setEditingId(null);
       } else {
-        // ✅ authorizedRequestの引数からtokenを削除
         await authorizedRequest("POST", "/sales", form);
       }
       setForm({
@@ -100,6 +97,7 @@ const SalesPage = () => {
         amount: "",
         status: "見込み",
         notes: "",
+        dueDate: "", // ✅ dueDateをリセット
       });
       fetchSales();
     } catch (err) {
@@ -121,6 +119,9 @@ const SalesPage = () => {
       amount: sale.amount,
       status: sale.status,
       notes: sale.notes,
+      dueDate: sale.dueDate
+        ? new Date(sale.dueDate).toISOString().split("T")[0]
+        : "", // ✅ 編集時に日付をセット
     });
     setEditingId(sale._id);
   };
@@ -151,7 +152,6 @@ const SalesPage = () => {
       return;
     }
     try {
-      // ✅ authorizedRequestの引数からtokenを削除
       await authorizedRequest("DELETE", `/sales/${id}`);
       fetchSales();
     } catch (err) {
@@ -169,7 +169,7 @@ const SalesPage = () => {
   // customerIdから顧客名を取得するヘルパー関数
   const getCustomerName = (customerId) => {
     const customer = customers.find((c) => c._id === customerId);
-    return customer ? customer.companyName : "顧客情報なし"; // 会社名を表示するように変更
+    return customer ? customer.companyName : "顧客情報なし";
   };
 
   return (
@@ -183,7 +183,7 @@ const SalesPage = () => {
         </h2>
         <form
           onSubmit={handleSubmit}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end" // ✅ 5列にレイアウトを調整
         >
           <input
             type="text"
@@ -230,6 +230,17 @@ const SalesPage = () => {
             <option value="契約済">契約済</option>
             <option value="失注">失注</option>
           </select>
+
+          {/* ✅ 期限日入力フィールドを追加 */}
+          <input
+            type="date"
+            name="dueDate"
+            placeholder="期限日"
+            value={form.dueDate}
+            onChange={handleChange}
+            className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+
           <textarea
             name="notes"
             placeholder="メモ"
@@ -254,6 +265,7 @@ const SalesPage = () => {
                   amount: "",
                   status: "見込み",
                   notes: "",
+                  dueDate: "", // ✅ dueDateをリセット
                 });
               }}
               className="p-3 font-semibold text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors duration-200"
@@ -284,7 +296,7 @@ const SalesPage = () => {
                     ステータス
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    作成日
+                    期限日
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     操作
@@ -307,7 +319,9 @@ const SalesPage = () => {
                       {sale.status}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {new Date(sale.createdAt).toLocaleDateString()}
+                      {sale.dueDate
+                        ? new Date(sale.dueDate).toLocaleDateString()
+                        : "未設定"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex space-x-2">

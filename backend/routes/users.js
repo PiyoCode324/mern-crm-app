@@ -15,6 +15,8 @@ const {
   getAllUsers,
   updateUserRole,
   getUsersBasic,
+  toggleUserDisabledStatus,
+  getUserById, // ✅ 追加: 新しいコントローラー関数をインポート
 } = require("../controllers/userController");
 
 // 🔹 初回登録（MongoDBにユーザー登録）
@@ -46,5 +48,11 @@ router.get("/basic", getUsersBasic);
 
 // ✅ 新しいルート：管理者専用で、ユーザーの役割を更新
 router.put("/:id/role", isAdmin, updateUserRole);
+
+// ✅ 新規: 管理者専用で、ユーザーの有効化/無効化を切り替えるエンドポイント
+router.put("/:id/disabled", isAdmin, toggleUserDisabledStatus);
+
+// ✅ 新規: 管理者専用で、特定のユーザー情報を取得するエンドポイント
+router.get("/:id", isAdmin, getUserById);
 
 module.exports = router;

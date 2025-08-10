@@ -1,5 +1,8 @@
+// backend/controllers/userController.js
+
 const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
+const admin = require("../firebaseAdmin");
 
 // 🔹 ユーザー新規登録（Firebase認証済みのユーザーをMongoDBに登録）
 const registerUser = asyncHandler(async (req, res) => {
@@ -92,19 +95,50 @@ const getUsers = asyncHandler(async (req, res) => {
   res.json(formattedUsers);
 });
 
-// ✅ 管理者専用：すべてのユーザーを取得するコントローラー
+// ✅ 修正: 管理者専用：すべてのユーザーを取得するコントローラー
+// 検索機能を追加
 const getAllUsers = asyncHandler(async (req, res) => {
-  const users = await User.find({}).select("-password");
-  if (users) {
-    res.status(200).json({ users });
-  } else {
-    res.status(404).json({ message: "ユーザーが見つかりません。" });
+  // クエリパラメータから検索キーワードを取得
+  const { search } = req.query;
+  const query = {};
+
+  // 検索キーワードがあれば、メールアドレスまたは表示名で部分一致検索を行う
+  if (search) {
+    query.$or = [
+      { email: { $regex: search, $options: "i" } },
+      { displayName: { $regex: search, $options: "i" } },
+    ];
   }
+
+  const users = await User.find(query).select("-password");
+  if (!users) {
+    return res.status(404).json({ message: "ユーザーが見つかりません。" });
+  }
+
+  // Firebaseのユーザー情報も取得し、MongoDBの情報と結合
+  const usersWithFirebaseInfo = await Promise.all(
+    users.map(async (user) => {
+      try {
+        const firebaseUser = await admin.auth().getUser(user.uid);
+        return {
+          ...user.toObject(),
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          disabled: firebaseUser.disabled,
+        };
+      } catch (error) {
+        // Firebaseに存在しないユーザーの場合のエラーハンドリング
+        console.error(`Firebaseユーザー取得エラー (UID: ${user.uid}):`, error);
+        return { ...user.toObject(), disabled: true, firebaseError: true };
+      }
+    })
+  );
+
+  res.status(200).json({ users: usersWithFirebaseInfo });
 });
 
 // 🔹 認証ユーザー向け：必要最低限の情報のみ返す安全なユーザー一覧取得
 const getUsersBasic = asyncHandler(async (req, res) => {
-  // 例: uid, displayName, role のみ返す
   const users = await User.find({}).select("uid displayName role");
   if (users) {
     res.status(200).json({ users });
@@ -118,7 +152,7 @@ const updateUserRole = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
 
-  const user = await User.findById(id);
+  const user = await User.findOne({ uid: id });
 
   if (!user) {
     res.status(404);
@@ -131,6 +165,65 @@ const updateUserRole = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "ユーザーの役割が更新されました。", user });
 });
 
+// ✅ 新規: ユーザーの有効化/無効化を切り替える関数
+const toggleUserDisabledStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { disabled } = req.body;
+
+  if (!id || typeof disabled !== "boolean") {
+    return res.status(400).json({
+      message:
+        "ユーザーID(Firebase UID)と無効化ステータス(disabled: boolean)が必要です。",
+    });
+  }
+
+  try {
+    await admin.auth().updateUser(id, { disabled: disabled });
+
+    res.status(200).json({
+      message: `ユーザーアカウントは正常に${
+        disabled ? "無効化" : "有効化"
+      }されました。`,
+    });
+  } catch (error) {
+    console.error("ユーザーの有効化/無効化に失敗しました:", error);
+    return res
+      .status(500)
+      .json({ message: "ユーザーの有効化/無効化に失敗しました。" });
+  }
+});
+
+// ✅ 新規: 特定のユーザー情報を取得する関数
+const getUserById = asyncHandler(async (req, res) => {
+  const { id } = req.params; // URLからFirebase UIDを取得
+
+  // MongoDBからユーザー情報を検索
+  const user = await User.findOne({ uid: id }).select("-password");
+
+  if (!user) {
+    res.status(404);
+    throw new Error("ユーザーが見つかりません。");
+  }
+
+  try {
+    // Firebase Admin SDK を使ってユーザーの無効化状態を取得
+    const firebaseUser = await admin.auth().getUser(id);
+
+    // MongoDBとFirebaseの情報を結合
+    const userWithFirebaseInfo = {
+      ...user.toObject(),
+      uid: firebaseUser.uid,
+      disabled: firebaseUser.disabled,
+    };
+
+    res.status(200).json({ user: userWithFirebaseInfo });
+  } catch (error) {
+    console.error("Firebaseユーザー情報の取得に失敗しました:", error);
+    res.status(500);
+    throw new Error("ユーザー情報の取得に失敗しました。");
+  }
+});
+
 module.exports = {
   registerUser,
   getMe,
@@ -138,6 +231,8 @@ module.exports = {
   deleteUser,
   getUsers,
   getAllUsers,
-  getUsersBasic,  // ← ここを追加
+  getUsersBasic,
   updateUserRole,
+  toggleUserDisabledStatus,
+  getUserById, // ✅ ここを追加
 };

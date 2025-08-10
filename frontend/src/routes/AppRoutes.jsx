@@ -16,6 +16,7 @@ import ContactForm from "../components/ContactForm";
 import AdminUserPage from "../pages/AdminUserPage";
 import PasswordReset from "../components/PasswordReset";
 import TasksPage from "../pages/TasksPage";
+import AdminUserDetailPage from "../pages/AdminUserDetailPage"; // ✅ 新規: ユーザー詳細ページをインポート
 
 const AppRoutes = () => {
   return (
@@ -113,6 +114,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute adminOnly={true}>
             <AdminUserPage />
+          </ProtectedRoute>
+        }
+      />
+      {/* ✅ 新規: ユーザー詳細ページのルートを追加 */}
+      <Route
+        path="/admin/users/:userId"
+        element={
+          <ProtectedRoute adminOnly={true}>
+            <AdminUserDetailPage />
           </ProtectedRoute>
         }
       />

@@ -78,7 +78,9 @@ const ContactList = ({ onEdit, refreshTrigger }) => {
                 <tr key={contact._id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {contact.customerName || "N/A"}
+                      {contact.customerName
+                        ? contact.customerName
+                        : "会社名なし"}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

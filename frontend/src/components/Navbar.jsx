@@ -23,10 +23,23 @@ const Navbar = () => {
         </Link>
         {user && (
           <>
+            {/* ログインユーザー向けのリンク */}
+            <Link to="/sales" className="mr-4 hover:text-gray-300">
+              案件
+            </Link>
+            <Link to="/customers" className="mr-4 hover:text-gray-300">
+              顧客
+            </Link>
+            <Link to="/contacts" className="mr-4 hover:text-gray-300">
+              担当者
+            </Link>
+            <Link to="/tasks" className="mr-4 hover:text-gray-300">
+              タスク
+            </Link>
             <Link to="/profile" className="mr-4 hover:text-gray-300">
               プロフィール
             </Link>
-            {/* ✅ isAdminがtrueの場合のみ表示 */}
+            {/* ✅ 管理者向けのリンク */}
             {isAdmin && (
               <Link to="/admin/users" className="hover:text-gray-300">
                 ユーザー管理

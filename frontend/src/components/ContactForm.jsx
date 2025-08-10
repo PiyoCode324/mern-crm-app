@@ -5,12 +5,19 @@ import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
 import { useNavigate } from "react-router-dom";
 
-const ContactForm = ({ contact, onSuccess, customerId, isPublic = false }) => {
+// ✅ onCancel プロパティを追加
+const ContactForm = ({
+  contact,
+  onSuccess,
+  onCancel,
+  customerId,
+  isPublic = false,
+}) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    customerName: "", // 修正: 会社名
-    contactName: "", // 修正: 担当者名
+    customerName: "",
+    contactName: "",
     contactEmail: "",
     contactPhone: "",
     content: "",
@@ -21,12 +28,11 @@ const ContactForm = ({ contact, onSuccess, customerId, isPublic = false }) => {
   const [error, setError] = useState(null);
   const [isNew, setIsNew] = useState(true);
 
-  // 編集フォームとして開かれた場合、データをセットする
   useEffect(() => {
     if (contact) {
       setFormData({
-        customerName: contact.customerName || "", // 修正
-        contactName: contact.contactName || "", // 修正
+        customerName: contact.customerName || "",
+        contactName: contact.contactName || "",
         contactEmail: contact.contactEmail || "",
         contactPhone: contact.contactPhone || "",
         content: contact.content || "",
@@ -36,10 +42,9 @@ const ContactForm = ({ contact, onSuccess, customerId, isPublic = false }) => {
       });
       setIsNew(false);
     } else {
-      // 新規フォームとして開かれた場合、初期化
       setFormData({
-        customerName: "", // 修正
-        contactName: "", // 修正
+        customerName: "",
+        contactName: "",
         contactEmail: "",
         contactPhone: "",
         content: "",
@@ -63,12 +68,10 @@ const ContactForm = ({ contact, onSuccess, customerId, isPublic = false }) => {
       return;
     }
 
-    // 公開フォームの場合、担当者IDは設定しない
     const assignedUserId = isPublic ? null : user?.uid;
 
     try {
       if (isNew) {
-        // 新規作成
         await authorizedRequest("POST", "/contacts", {
           ...formData,
           assignedUserId,
@@ -80,7 +83,6 @@ const ContactForm = ({ contact, onSuccess, customerId, isPublic = false }) => {
           navigate("/contacts");
         }
       } else {
-        // 更新
         await authorizedRequest("PUT", `/contacts/${contact._id}`, formData);
         setError(null);
         if (onSuccess) {
@@ -237,10 +239,17 @@ const ContactForm = ({ contact, onSuccess, customerId, isPublic = false }) => {
           >
             {isPublic ? "送信" : isNew ? "登録" : "更新"}
           </button>
-          {!isNew && (
+          {/* ✅ onCancelプロパティがある場合、または新規でない場合にボタンを表示 */}
+          {(onCancel || !isNew) && (
             <button
               type="button"
-              onClick={() => navigate("/contacts")}
+              onClick={() => {
+                if (onCancel) {
+                  onCancel(); // onCancel関数があればそれを呼び出す
+                } else {
+                  navigate("/contacts"); // なければページ遷移
+                }
+              }}
               className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
             >
               キャンセル

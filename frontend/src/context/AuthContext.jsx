@@ -8,7 +8,6 @@ import api from "../utils/api";
 const AuthContext = createContext();
 
 const AuthProvider = ({ children }) => {
-  // ✅ ローディング状態をtrueで初期化し、認証確認が完了するまで待機する
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -17,39 +16,47 @@ const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      console.log("🔄 onAuthStateChanged fired:", currentUser);
       if (currentUser) {
         try {
+          // IDトークンとカスタムクレームを取得
+          const idToken = await currentUser.getIdToken();
           const idTokenResult = await currentUser.getIdTokenResult();
           const claims = idTokenResult.claims;
 
           setUser(currentUser);
-          setToken(await currentUser.getIdToken());
+          setToken(idToken);
           setIsAdmin(claims?.role === "admin");
 
           console.log("✅ AuthContext: ユーザーがログインしました", {
-            user: currentUser.uid,
+            uid: currentUser.uid,
             isAdmin: claims?.role === "admin",
-            claims: claims,
+            claims,
           });
         } catch (error) {
           console.error(
             "❌ AuthContext: IDトークンの取得に失敗しました",
             error
           );
+          setUser(null);
+          setToken(null);
+          setIsAdmin(false);
         }
       } else {
         setUser(null);
         setToken(null);
         setIsAdmin(false);
-
         console.log("❌ AuthContext: ユーザーはログアウトしました");
       }
-      // ✅ 認証状態が確定したら、loadingとisAuthReadyを更新
       setLoading(false);
       setIsAuthReady(true);
+      console.log("loading:", false, "isAuthReady:", true);
     });
 
-    return () => unsubscribe();
+    return () => {
+      console.log("🔚 onAuthStateChanged listener解除");
+      unsubscribe();
+    };
   }, []);
 
   const handleLogout = async () => {

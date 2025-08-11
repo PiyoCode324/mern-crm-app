@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
 import Modal from "../components/Modal";
 import CustomerForm from "../components/CustomerForm";
-import ContactList from "../components/ContactList"; // 問い合わせリストのコンポーネント
+import ContactList from "../components/ContactList";
 import { Link } from "react-router-dom";
 
 const CustomerDetailPage = () => {
@@ -14,7 +14,8 @@ const CustomerDetailPage = () => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const [customer, setCustomer] = useState(null);
-  const [sales, setSales] = useState([]); // ✅ 案件リスト用のStateを追加
+  const [sales, setSales] = useState([]); // 案件リスト用のState
+  const [tasks, setTasks] = useState([]); // ✅ タスクリスト用のStateを追加
   const [showModal, setShowModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({});
   const [editingCustomer, setEditingCustomer] = useState(null);
@@ -41,7 +42,7 @@ const CustomerDetailPage = () => {
     }
   }, [user, token, customerId, navigate]);
 
-  // ✅ 顧客に紐づく案件リストを取得する関数を追加
+  // ✅ 顧客に紐づく案件リストを取得する関数 (変更なし)
   const fetchSalesByCustomer = useCallback(async () => {
     if (!user || !token || !customerId) return;
     try {
@@ -56,10 +57,26 @@ const CustomerDetailPage = () => {
     }
   }, [user, token, customerId]);
 
+  // ✅ 顧客に紐づくタスクリストを取得する関数を新規追加
+  const fetchTasksByCustomer = useCallback(async () => {
+    if (!user || !token || !customerId) return;
+    try {
+      const res = await authorizedRequest(
+        "GET",
+        `/customers/${customerId}/tasks`
+      );
+      setTasks(res);
+    } catch (err) {
+      console.error("タスクリストの取得に失敗しました:", err);
+      setTasks([]);
+    }
+  }, [user, token, customerId]);
+
   useEffect(() => {
     fetchCustomer();
-    fetchSalesByCustomer(); // ✅ 案件リストの取得を呼び出し
-  }, [fetchCustomer, fetchSalesByCustomer]);
+    fetchSalesByCustomer();
+    fetchTasksByCustomer(); // ✅ タスクリストの取得を呼び出し
+  }, [fetchCustomer, fetchSalesByCustomer, fetchTasksByCustomer]);
 
   const handleEditSuccess = () => {
     fetchCustomer();
@@ -154,9 +171,11 @@ const CustomerDetailPage = () => {
             />
           </div>
         )}
+      </div>
 
-        {/* ✅ 案件リストの表示エリアを追加 */}
-        <div className="bg-white p-6 rounded-lg shadow-md col-span-1 lg:col-span-2">
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* ✅ 案件リストの表示エリア (変更なし) */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">
             関連案件一覧
           </h2>
@@ -208,6 +227,57 @@ const CustomerDetailPage = () => {
           ) : (
             <p className="text-gray-500">
               この顧客に関連する案件はありません。
+            </p>
+          )}
+        </div>
+
+        {/* ✅ タスクリストの表示エリアを追加 */}
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold text-gray-700 mb-4">
+            関連タスク一覧
+          </h2>
+          {tasks.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      タスク名
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      ステータス
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      期日
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      説明
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {tasks.map((task) => (
+                    <tr key={task._id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {task.title}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {task.status}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {new Date(task.dueDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {task.description}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-gray-500">
+              この顧客に関連するタスクはありません。
             </p>
           )}
         </div>

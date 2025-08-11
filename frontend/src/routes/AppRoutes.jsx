@@ -16,7 +16,8 @@ import ContactForm from "../components/ContactForm";
 import AdminUserPage from "../pages/AdminUserPage";
 import PasswordReset from "../components/PasswordReset";
 import TasksPage from "../pages/TasksPage";
-import AdminUserDetailPage from "../pages/AdminUserDetailPage"; // ✅ 新規: ユーザー詳細ページをインポート
+import AdminUserDetailPage from "../pages/AdminUserDetailPage";
+import KanbanBoard from "../components/Kanban/KanbanBoard"; // ✅ 新規: KanbanBoardをインポート
 
 const AppRoutes = () => {
   return (
@@ -24,8 +25,6 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/contact-form" element={<FreeContactPage />} />{" "}
-      {/* 公開フォームのルート */}
-      {/* ✅ パスワードリセットのルートを追加 */}
       <Route path="/password-reset" element={<PasswordReset />} />
       {/* ログインが必要なルート */}
       <Route
@@ -108,7 +107,16 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-      {/* ✅ 管理者向けのルート */}
+      {/* ✅ 新規: Kanbanボードのルートを追加 */}
+      <Route
+        path="/kanban"
+        element={
+          <ProtectedRoute>
+            <KanbanBoard />
+          </ProtectedRoute>
+        }
+      />
+      {/* 管理者向けのルート */}
       <Route
         path="/admin/users"
         element={
@@ -117,7 +125,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-      {/* ✅ 新規: ユーザー詳細ページのルートを追加 */}
+      {/* ユーザー詳細ページのルート */}
       <Route
         path="/admin/users/:userId"
         element={

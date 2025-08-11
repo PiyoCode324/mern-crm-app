@@ -125,3 +125,54 @@ exports.getAllCustomers = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// 💡 追加: ステータス別に顧客情報を取得（ログインユーザーの顧客のみ）
+exports.getCustomersByStatus = async (req, res) => {
+  try {
+    const { status } = req.params; // URLからステータスを取得
+    const customers = await Customer.find({
+      assignedUserId: req.user.uid,
+      status: status, // 💡 指定されたステータスでフィルタリング
+    }).sort({
+      createdAt: -1,
+    });
+    res.status(200).json(customers);
+  } catch (error) {
+    console.error("❌ ステータス別顧客取得エラー:", error);
+    res.status(500).json({ message: "顧客情報の取得に失敗しました" });
+  }
+};
+
+// 💡 追加: 顧客のステータスを更新
+exports.updateCustomerStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const userId = req.user.uid;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "無効な顧客IDです" });
+    }
+
+    const updatedCustomer = await Customer.findOneAndUpdate(
+      { _id: id, assignedUserId: userId }, // 💡 IDとユーザーIDで検索
+      { status: status }, // 💡 ステータスのみを更新
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedCustomer) {
+      return res
+        .status(404)
+        .json({ message: "顧客が見つからないか、権限がありません" });
+    }
+
+    res.status(200).json(updatedCustomer);
+  } catch (error) {
+    console.error("❌ 顧客ステータス更新エラー:", error);
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((val) => val.message);
+      return res.status(400).json({ message: messages.join(", ") });
+    }
+    res.status(500).json({ message: "顧客情報の更新に失敗しました" });
+  }
+};

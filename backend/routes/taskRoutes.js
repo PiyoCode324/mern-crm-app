@@ -6,9 +6,9 @@ const User = require("../models/User");
 const Notification = require("../models/Notification"); // 通知モデルを追加
 const { verifyFirebaseToken } = require("../middleware/authMiddleware");
 
-// @route   POST /api/tasks
-// @desc    新しいタスクを作成
-// @access  Private
+// @route   POST /api/tasks
+// @desc    新しいタスクを作成
+// @access  Private
 router.post("/", verifyFirebaseToken, async (req, res) => {
   const { title, description, status, assignedTo, customer, dueDate } =
     req.body;
@@ -47,9 +47,9 @@ router.post("/", verifyFirebaseToken, async (req, res) => {
   }
 });
 
-// @route   GET /api/tasks
-// @desc    認証済みユーザーに関連するすべてのタスクを取得
-// @access  Private
+// @route   GET /api/tasks
+// @desc    認証済みユーザーに関連するすべてのタスクを取得
+// @access  Private
 router.get("/", verifyFirebaseToken, async (req, res) => {
   try {
     const tasks = await Task.find({
@@ -80,9 +80,9 @@ router.get("/", verifyFirebaseToken, async (req, res) => {
   }
 });
 
-// @route   PUT /api/tasks/:id
-// @desc    特定のタスクを更新
-// @access  Private
+// @route   PUT /api/tasks/:id
+// @desc    特定のタスクを更新
+// @access  Private
 router.put("/:id", verifyFirebaseToken, async (req, res) => {
   const { title, description, status, assignedTo, customer, dueDate } =
     req.body;
@@ -132,9 +132,9 @@ router.put("/:id", verifyFirebaseToken, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/tasks/:id
-// @desc    特定のタスクを削除
-// @access  Private
+// @route   DELETE /api/tasks/:id
+// @desc    特定のタスクを削除
+// @access  Private
 router.delete("/:id", verifyFirebaseToken, async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);

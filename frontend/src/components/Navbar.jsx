@@ -1,4 +1,5 @@
 // components/Navbar.jsx
+
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -35,6 +36,10 @@ const Navbar = () => {
             </Link>
             <Link to="/tasks" className="mr-4 hover:text-gray-300">
               タスク
+            </Link>
+            {/* ✅ Kanbanボードへのリンクを追加 */}
+            <Link to="/kanban" className="mr-4 hover:text-gray-300">
+              Kanban
             </Link>
             <Link to="/profile" className="mr-4 hover:text-gray-300">
               プロフィール

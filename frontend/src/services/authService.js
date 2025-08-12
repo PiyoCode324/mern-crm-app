@@ -2,6 +2,7 @@
 import axios from "axios";
 import { getAuth, signOut } from "firebase/auth";
 import { jwtDecode } from "jwt-decode";
+// import Dashboard from "../pages/Dashboard";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -50,22 +51,33 @@ const refreshAccessToken = async () => {
  * Axiosリクエスト前インターセプター
  */
 authApi.interceptors.request.use(async (config) => {
+  if (config.skipAuthInterceptor) {
+    // インターセプターの処理をスキップ
+    return config;
+  }
+
   const now = Date.now() / 1000;
 
-  // 有効期限5秒前なら更新
+  console.log("🚀 interceptor: リクエスト前", { cachedToken, cachedExp, now });
+
   if (cachedToken && cachedExp - now < 5) {
     try {
+      console.log("🔄 interceptor: トークン更新開始");
       const newToken = await refreshAccessToken();
       config.headers.Authorization = `Bearer ${newToken}`;
+      console.log("✅ interceptor: 新トークンセット", newToken);
       return config;
-    } catch {
+    } catch (e) {
+      console.error("❌ interceptor: トークン更新失敗", e);
       return Promise.reject("トークン更新失敗");
     }
   }
 
-  // トークンが有効ならそのまま使用
   if (cachedToken) {
     config.headers.Authorization = `Bearer ${cachedToken}`;
+    console.log("✅ interceptor: 既存トークンセット");
+  } else {
+    console.warn("⚠️ interceptor: トークンがありません");
   }
   return config;
 });
@@ -75,15 +87,33 @@ authApi.interceptors.request.use(async (config) => {
  */
 export const authorizedRequest = async (method, url, data = null) => {
   try {
+    const auth = getAuth();
+    const user = auth.currentUser; // ログイン中のユーザーを取得
+
+    // ユーザーがログインしていなければエラーをスロー
+    if (!user) {
+      throw new Error("ユーザーがログインしていません。");
+    }
+
+    // ここで最新のトークンを取得
+    const idToken = await user.getIdToken();
+
+    // axiosにトークンをセットしてリクエスト
     const res = await authApi({
       method,
       url,
       data: method.toLowerCase() === "get" ? null : data,
+      headers: {
+        Authorization: `Bearer ${idToken}`, // トークンをここでセット
+      },
+      skipAuthInterceptor: true, // ← インターセプターでこれがあると処理をスキップする
     });
     return res.data;
   } catch (error) {
     if (error.response?.status === 401) {
+      // 必要に応じてlogoutを呼び出す
       await logout();
+      // return Dashboard;
     }
     throw error;
   }

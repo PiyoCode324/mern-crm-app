@@ -25,6 +25,7 @@ const AuthProvider = ({ children }) => {
           const claims = idTokenResult.claims;
 
           setUser(currentUser);
+          console.log("Current token:", idToken);
           setToken(idToken);
           setIsAdmin(claims?.role === "admin");
 

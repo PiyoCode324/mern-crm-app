@@ -9,13 +9,14 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { logs, addLog } = useScreenLogger();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+    addLog("ログイン処理を開始しました");
 
     try {
-      // ログインを実行し、ユーザー情報を取得
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
@@ -23,18 +24,19 @@ export default function Login() {
       );
       const user = userCredential.user;
 
-      // ★★★ ログイン成功後、FirebaseのIDトークンを取得 ★★★
+      addLog(`ログイン成功: UID=${user.uid}`);
+
       const token = await user.getIdToken();
+      addLog(`IDトークンを取得しました: ${token.substring(0, 20)}...`);
 
-      // ★★★ IDトークンをlocalStorageに保存 ★★★
       localStorage.setItem("token", token);
+      addLog("IDトークンをlocalStorageに保存しました");
 
-      // ログイン成功後はDashboardへ遷移
       navigate("/dashboard");
+      addLog("ダッシュボードへ遷移しました");
     } catch (err) {
       setError("ログインに失敗しました");
-      // エラーメッセージをより詳細に表示することも可能
-      // console.error(err);
+      addLog(`ログイン失敗: ${err.message || err}`);
     }
   };
 
@@ -68,7 +70,6 @@ export default function Login() {
         >
           ログイン
         </button>
-        {/* ✅ パスワードリセットへのリンクを追加 */}
         <p className="mt-4 text-center">
           <Link
             to="/password-reset"

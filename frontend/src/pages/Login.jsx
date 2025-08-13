@@ -4,39 +4,47 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase/config";
 import { useNavigate, Link } from "react-router-dom";
 
+// 簡易ログ関数
+const addLog = (msg) => {
+  console.log(`[Login] ${msg}`);
+};
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { logs, addLog } = useScreenLogger();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-    addLog("ログイン処理を開始しました");
 
     try {
+      addLog("ログイン処理開始");
+
+      // Firebaseでログイン
       const userCredential = await signInWithEmailAndPassword(
         auth,
         email,
         password
       );
       const user = userCredential.user;
-
       addLog(`ログイン成功: UID=${user.uid}`);
 
+      // トークン取得
       const token = await user.getIdToken();
       addLog(`IDトークンを取得しました: ${token.substring(0, 20)}...`);
 
+      // localStorage に保存
       localStorage.setItem("token", token);
       addLog("IDトークンをlocalStorageに保存しました");
 
+      // ダッシュボードへ
       navigate("/dashboard");
       addLog("ダッシュボードへ遷移しました");
     } catch (err) {
+      console.error("ログインエラー詳細:", err);
       setError("ログインに失敗しました");
-      addLog(`ログイン失敗: ${err.message || err}`);
     }
   };
 

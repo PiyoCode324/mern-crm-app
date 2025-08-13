@@ -13,6 +13,7 @@ const salesRoutes = require("./routes/salesRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const notificationRoutes = require("./routes/notifications");
+const activitiesRoutes = require("./routes/activitiesRoutes");
 
 dotenv.config();
 
@@ -48,6 +49,7 @@ app.use("/api/sales", salesRoutes);
 app.use("/api/contacts", contactRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/activities", activitiesRoutes);
 
 app.get("/", (req, res) => {
   res.send("🎉 Backend API is running (MongoDB Notifications Only)");

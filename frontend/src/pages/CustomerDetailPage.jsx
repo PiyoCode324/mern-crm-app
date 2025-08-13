@@ -1,26 +1,27 @@
 // src/pages/CustomerDetailPage.jsx
-
 import React, { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
 import Modal from "../components/Modal";
 import CustomerForm from "../components/CustomerForm";
 import ContactList from "../components/ContactList";
-import { Link } from "react-router-dom";
+import ActivityTimeline from "../components/ActivityTimeline";
 
 const CustomerDetailPage = () => {
   const { customerId } = useParams();
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const [customer, setCustomer] = useState(null);
-  const [sales, setSales] = useState([]); // 案件リスト用のState
-  const [tasks, setTasks] = useState([]); // ✅ タスクリスト用のStateを追加
+  const [sales, setSales] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({});
   const [editingCustomer, setEditingCustomer] = useState(null);
 
-  // 顧客情報を取得する関数
+  // 更新トリガー
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   const fetchCustomer = useCallback(async () => {
     if (!user || !token || !customerId) return;
     try {
@@ -42,7 +43,6 @@ const CustomerDetailPage = () => {
     }
   }, [user, token, customerId, navigate]);
 
-  // ✅ 顧客に紐づく案件リストを取得する関数 (変更なし)
   const fetchSalesByCustomer = useCallback(async () => {
     if (!user || !token || !customerId) return;
     try {
@@ -57,7 +57,6 @@ const CustomerDetailPage = () => {
     }
   }, [user, token, customerId]);
 
-  // ✅ 顧客に紐づくタスクリストを取得する関数を新規追加
   const fetchTasksByCustomer = useCallback(async () => {
     if (!user || !token || !customerId) return;
     try {
@@ -72,14 +71,25 @@ const CustomerDetailPage = () => {
     }
   }, [user, token, customerId]);
 
+  // データ更新トリガー
+  const refreshAllData = useCallback(() => {
+    console.log("全データの再取得をトリガーしました...");
+    setRefreshTrigger((prev) => prev + 1);
+  }, []);
+
   useEffect(() => {
     fetchCustomer();
     fetchSalesByCustomer();
-    fetchTasksByCustomer(); // ✅ タスクリストの取得を呼び出し
-  }, [fetchCustomer, fetchSalesByCustomer, fetchTasksByCustomer]);
+    fetchTasksByCustomer();
+  }, [
+    fetchCustomer,
+    fetchSalesByCustomer,
+    fetchTasksByCustomer,
+    refreshTrigger,
+  ]);
 
   const handleEditSuccess = () => {
-    fetchCustomer();
+    refreshAllData();
     setEditingCustomer(null);
   };
 
@@ -109,19 +119,20 @@ const CustomerDetailPage = () => {
     setShowModal(true);
   };
 
-  if (!customer) {
-    return <div className="text-center mt-8">読み込み中...</div>;
-  }
+  if (!customer) return <div className="text-center mt-8">読み込み中...</div>;
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen font-sans">
       {showModal && <Modal {...modalConfig} />}
 
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">
-        顧客詳細: {customer.companyName}
-      </h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">
+          顧客詳細: {customer.companyName}
+        </h1>
+      </div>
+
+      {/* 顧客情報 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* 顧客情報カード */}
         <div className="bg-white p-6 rounded-lg shadow-md h-fit">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">顧客情報</h2>
           <p className="mb-2">
@@ -148,7 +159,12 @@ const CustomerDetailPage = () => {
           <div className="flex space-x-2">
             <button
               onClick={() => setEditingCustomer(customer)}
-              className="bg-yellow-400 text-white px-4 py-2 rounded-md hover:bg-yellow-500 transition-colors duration-200"
+              disabled={editingCustomer ? true : false} // 下で編集中ならグレーアウト
+              className={`px-4 py-2 rounded ${
+                editingCustomer
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  : "bg-yellow-400 text-white hover:bg-yellow-500"
+              }`}
             >
               編集
             </button>
@@ -161,7 +177,6 @@ const CustomerDetailPage = () => {
           </div>
         </div>
 
-        {/* 編集フォーム */}
         {editingCustomer && (
           <div className="bg-white p-6 rounded-lg shadow-md h-fit">
             <CustomerForm
@@ -173,8 +188,9 @@ const CustomerDetailPage = () => {
         )}
       </div>
 
+      {/* 案件 & タスク */}
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* ✅ 案件リストの表示エリア (変更なし) */}
+        {/* 案件 */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">
             関連案件一覧
@@ -184,19 +200,19 @@ const CustomerDetailPage = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       案件名
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       金額
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       ステータス
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       作成日
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       メモ
                     </th>
                   </tr>
@@ -231,7 +247,7 @@ const CustomerDetailPage = () => {
           )}
         </div>
 
-        {/* ✅ タスクリストの表示エリアを追加 */}
+        {/* タスク */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">
             関連タスク一覧
@@ -241,16 +257,16 @@ const CustomerDetailPage = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       タスク名
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       ステータス
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       期日
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       説明
                     </th>
                   </tr>
@@ -282,6 +298,12 @@ const CustomerDetailPage = () => {
           )}
         </div>
       </div>
+
+      {/* アクティビティ履歴 */}
+      <div className="mt-8">
+        <ActivityTimeline customerId={customerId} refreshKey={refreshTrigger} />
+      </div>
+
       <div className="mt-8">
         <Link to="/customers" className="text-blue-600 hover:underline">
           &larr; 顧客リストに戻る

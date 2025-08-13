@@ -1,17 +1,55 @@
-// backend/controllers/customerController.js (修正版)
+// backend/controllers/customerController.js
 
 const Customer = require("../models/Customer");
+const Activity = require("../models/Activity"); // 💡 Activityモデルをインポート
 const mongoose = require("mongoose");
+
+// 💡 アクティビティを記録するためのヘルパー関数
+const recordActivity = async (
+  userId,
+  action,
+  targetModel,
+  targetId,
+  description,
+  customerId = null
+) => {
+  try {
+    const activity = new Activity({
+      userId,
+      action,
+      targetModel,
+      targetId,
+      description,
+      customerId,
+    });
+    await activity.save();
+  } catch (error) {
+    console.error("アクティビティの記録に失敗しました:", error);
+    // エラーが発生しても、メインの処理は止めない
+  }
+};
 
 // 顧客新規登録
 // 顧客を作成する際、ログイン中のユーザーに紐づける
 exports.createCustomer = async (req, res) => {
   try {
     const newCustomer = await Customer.create({
-      ...req.body,
-      // ログインユーザーのUIDを assignedUserId に設定
+      ...req.body, // ログインユーザーのUIDを assignedUserId に設定
       assignedUserId: req.user.uid,
     });
+
+    // 💡 顧客作成時にアクティビティを記録
+    await recordActivity(
+      req.user.uid,
+      "created",
+      "Customer",
+      newCustomer._id,
+      `新しい顧客「${
+        newCustomer.companyName || newCustomer.name
+      }」を登録しました。`,
+      newCustomer._id
+    );
+
     res.status(201).json(newCustomer);
   } catch (error) {
     console.error("❌ 顧客作成エラー:", error);
@@ -62,11 +100,13 @@ exports.updateCustomer = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.uid;
 
+    // 💡 更新前データの取得
+    const beforeUpdate = await Customer.findById(id).lean();
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "無効な顧客IDです" });
-    }
+    } // ログインユーザーのIDと顧客のassignedUserIdが一致するか確認
 
-    // ログインユーザーのIDと顧客のassignedUserIdが一致するか確認
     const customer = await Customer.findById(id);
     if (!customer || customer.assignedUserId !== userId) {
       return res
@@ -78,6 +118,19 @@ exports.updateCustomer = async (req, res) => {
       new: true,
       runValidators: true,
     });
+
+    // 💡 顧客更新時にアクティビティを記録
+    await recordActivity(
+      req.user.uid,
+      "updated",
+      "Customer",
+      updatedCustomer._id,
+      `顧客「${
+        updatedCustomer.companyName || updatedCustomer.name
+      }」の情報を更新しました。`,
+      updatedCustomer._id
+    );
+
     res.status(200).json(updatedCustomer);
   } catch (error) {
     console.error("❌ 顧客更新エラー:", error);
@@ -97,15 +150,24 @@ exports.deleteCustomer = async (req, res) => {
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "無効な顧客IDです" });
-    }
+    } // ログインユーザーのIDと顧客のassignedUserIdが一致するか確認
 
-    // ログインユーザーのIDと顧客のassignedUserIdが一致するか確認
     const customer = await Customer.findById(id);
     if (!customer || customer.assignedUserId !== userId) {
       return res
         .status(404)
         .json({ message: "顧客が見つからないか、権限がありません" });
     }
+
+    // 💡 削除前にアクティビティを記録
+    await recordActivity(
+      req.user.uid,
+      "deleted",
+      "Customer",
+      customer._id,
+      `顧客「${customer.companyName || customer.name}」を削除しました。`,
+      customer._id
+    );
 
     await Customer.findByIdAndDelete(id);
     res.status(200).json({ message: "顧客情報を削除しました" });
@@ -150,6 +212,9 @@ exports.updateCustomerStatus = async (req, res) => {
     const { status } = req.body;
     const userId = req.user.uid;
 
+    // 💡 更新前データの取得
+    const beforeUpdate = await Customer.findById(id).lean();
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "無効な顧客IDです" });
     }
@@ -165,6 +230,18 @@ exports.updateCustomerStatus = async (req, res) => {
         .status(404)
         .json({ message: "顧客が見つからないか、権限がありません" });
     }
+
+    // 💡 ステータス更新時にアクティビティを記録
+    await recordActivity(
+      req.user.uid,
+      "status_changed", // 💡 'status_changed'という専用アクションを使用
+      "Customer",
+      updatedCustomer._id,
+      `顧客「${
+        updatedCustomer.companyName || updatedCustomer.name
+      }」のステータスを「${updatedCustomer.status}」に更新しました。`,
+      updatedCustomer._id
+    );
 
     res.status(200).json(updatedCustomer);
   } catch (error) {

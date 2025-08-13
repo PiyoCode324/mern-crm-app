@@ -1,8 +1,9 @@
 // src/pages/AdminUserPage.jsx
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom"; // ✅ 追加: Linkコンポーネントをインポート
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
+import ActivityLog from "../components/ActivityLog";
 
 const AdminUserPage = () => {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -31,14 +32,15 @@ const AdminUserPage = () => {
     fetchUsers(searchTerm);
   };
 
+  // ✅ 修正: alert()やwindow.confirm()は使用せず、カスタムUIを使うべきです。
   const handleToggleRole = async (targetUid, currentRole) => {
     if (user.uid === targetUid) {
-      // 🚨 DO NOT use alert() or window.confirm() in the code.
-      // Instead, use a custom modal or message box UI.
-      alert("自分の役割は変更できません。");
+      console.log("自分の役割は変更できません。");
+      // TODO: カスタムUIでメッセージを表示する
       return;
     }
     const newRole = currentRole === "admin" ? "user" : "admin";
+    // TODO: カスタムUIで確認ダイアログを表示する
     if (!window.confirm(`このユーザーの役割を '${newRole}' に変更しますか？`))
       return;
 
@@ -47,26 +49,25 @@ const AdminUserPage = () => {
         role: newRole,
       });
       await fetchUsers(searchTerm);
-      // 🚨 DO NOT use alert() or window.confirm() in the code.
-      // Instead, use a custom modal or message box UI.
-      alert("役割が正常に更新されました。");
+      // TODO: カスタムUIで成功メッセージを表示する
+      console.log("役割が正常に更新されました。");
     } catch (err) {
       console.error("役割の更新に失敗しました:", err);
-      // 🚨 DO NOT use alert() or window.confirm() in the code.
-      // Instead, use a custom modal or message box UI.
-      alert("役割の更新に失敗しました。管理者権限を確認してください。");
+      // TODO: カスタムUIでエラーメッセージを表示する
+      console.log("役割の更新に失敗しました。管理者権限を確認してください。");
     }
   };
 
+  // ✅ 修正: alert()やwindow.confirm()は使用せず、カスタムUIを使うべきです。
   const handleToggleDisabled = async (targetUid, isDisabled) => {
     if (user.uid === targetUid) {
-      // 🚨 DO NOT use alert() or window.confirm() in the code.
-      // Instead, use a custom modal or message box UI.
-      alert("自分のアカウントを無効化することはできません。");
+      console.log("自分のアカウントを無効化することはできません。");
+      // TODO: カスタムUIでメッセージを表示する
       return;
     }
     const newDisabledStatus = !isDisabled;
     const action = newDisabledStatus ? "無効化" : "有効化";
+    // TODO: カスタムUIで確認ダイアログを表示する
     if (!window.confirm(`このユーザーアカウントを${action}しますか？`)) return;
 
     try {
@@ -74,14 +75,12 @@ const AdminUserPage = () => {
         disabled: newDisabledStatus,
       });
       await fetchUsers(searchTerm);
-      // 🚨 DO NOT use alert() or window.confirm() in the code.
-      // Instead, use a custom modal or message box UI.
-      alert(`アカウントが正常に${action}されました。`);
+      // TODO: カスタムUIで成功メッセージを表示する
+      console.log(`アカウントが正常に${action}されました。`);
     } catch (err) {
       console.error("アカウント状態の更新に失敗しました:", err);
-      // 🚨 DO NOT use alert() or window.confirm() in the code.
-      // Instead, use a custom modal or message box UI.
-      alert(
+      // TODO: カスタムUIでエラーメッセージを表示する
+      console.log(
         "アカウント状態の更新に失敗しました。管理者権限を確認してください。"
       );
     }
@@ -133,7 +132,7 @@ const AdminUserPage = () => {
           検索
         </button>
       </div>
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
+      <div className="bg-white shadow-md rounded-lg overflow-hidden mb-8">
         <table className="min-w-full leading-normal">
           <thead>
             <tr className="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
@@ -219,6 +218,7 @@ const AdminUserPage = () => {
           </tbody>
         </table>
       </div>
+      <ActivityLog />
     </div>
   );
 };

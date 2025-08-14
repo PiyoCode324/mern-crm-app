@@ -1,53 +1,66 @@
 // backend/controllers/activityController.js
-
 const Activity = require("../models/Activity");
 const mongoose = require("mongoose");
+const asyncHandler = require("express-async-handler");
 
 // --- 顧客IDに紐づくアクティビティを取得 ---
-exports.getActivitiesByCustomer = async (req, res) => {
-  try {
-    const { customerId } = req.params;
+exports.getActivitiesByCustomer = asyncHandler(async (req, res) => {
+  const { customerId } = req.params;
+  const assignedUserId = req.user.uid;
 
-    if (!mongoose.Types.ObjectId.isValid(customerId)) {
-      return res.status(400).json({ message: "無効な顧客IDです" });
-    }
-
-    // 💡 customerIdでアクティビティを検索し、新しいものから順にソート
-    const activities = await Activity.find({ customerId })
-      .sort({ createdAt: -1 })
-      .limit(50); // 最新50件のみ取得するなど、件数を制限すると良い
-
-    res.status(200).json(activities);
-  } catch (error) {
-    console.error("❌ 顧客アクティビティ取得エラー:", error);
-    res.status(500).json({ message: "アクティビティの取得に失敗しました" });
+  if (!mongoose.Types.ObjectId.isValid(customerId)) {
+    res.status(400);
+    throw new Error("無効な顧客IDです");
   }
-};
+
+  const activities = await Activity.find({
+    customerId: new mongoose.Types.ObjectId(customerId),
+    assignedUserId,
+  })
+    .sort({ createdAt: -1 })
+    .limit(50);
+
+  res.status(200).json(activities);
+});
 
 // --- ユーザーIDに紐づくアクティビティを取得 ---
-exports.getActivitiesByUser = async (req, res) => {
-  try {
-    // 💡 ログイン中のユーザーIDでアクティビティを検索
-    const activities = await Activity.find({ userId: req.user.uid })
-      .sort({ createdAt: -1 })
-      .limit(50);
+exports.getActivitiesByUser = asyncHandler(async (req, res) => {
+  const activities = await Activity.find({ assignedUserId: req.user.uid })
+    .sort({ createdAt: -1 })
+    .limit(50);
 
-    res.status(200).json(activities);
-  } catch (error) {
-    console.error("❌ ユーザーアクティビティ取得エラー:", error);
-    res.status(500).json({ message: "アクティビティの取得に失敗しました" });
-  }
-};
+  res.status(200).json(activities);
+});
 
 // --- 全てのアクティビティを取得（管理者向け） ---
-exports.getAllActivities = async (req, res) => {
-  try {
-    // 💡 管理者ユーザーかどうかのチェックを追加することも可能
-    const activities = await Activity.find().sort({ createdAt: -1 }).limit(100); // 最新100件のみ取得
-
-    res.status(200).json(activities);
-  } catch (error) {
-    console.error("❌ 全体アクティビティ取得エラー:", error);
-    res.status(500).json({ message: "アクティビティの取得に失敗しました" });
+exports.getAllActivities = asyncHandler(async (req, res) => {
+  // 管理者チェック例（必要に応じて）
+  if (!req.user.isAdmin) {
+    res.status(403);
+    throw new Error("権限がありません");
   }
-};
+
+  const activities = await Activity.find().sort({ createdAt: -1 }).limit(100);
+
+  res.status(200).json(activities);
+});
+
+// --- 特定の案件IDに紐づくアクティビティを取得 ---
+exports.getActivitiesBySaleId = asyncHandler(async (req, res) => {
+  const { saleId } = req.params;
+  const assignedUserId = req.user.uid;
+
+  if (!mongoose.Types.ObjectId.isValid(saleId)) {
+    res.status(400);
+    throw new Error("無効な案件IDです");
+  }
+
+  const activities = await Activity.find({
+    salesId: new mongoose.Types.ObjectId(saleId),
+    assignedUserId,
+  })
+    .sort({ createdAt: -1 })
+    .limit(50);
+
+  res.status(200).json(activities);
+});

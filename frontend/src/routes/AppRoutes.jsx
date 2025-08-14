@@ -11,6 +11,7 @@ import ContactsPage from "../pages/ContactsPage";
 import ProtectedRoute from "../components/ProtectedRoute";
 import FreeContactPage from "../pages/FreeContactPage";
 import SalesPage from "../pages/SalesPage";
+import SalesDetailPage from "../pages/SalesDetailPage";
 import Dashboard from "../pages/Dashboard";
 import ContactForm from "../components/ContactForm";
 import AdminUserPage from "../pages/AdminUserPage";
@@ -96,6 +97,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <SalesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales/:saleId"
+        element={
+          <ProtectedRoute>
+            <SalesDetailPage />
           </ProtectedRoute>
         }
       />

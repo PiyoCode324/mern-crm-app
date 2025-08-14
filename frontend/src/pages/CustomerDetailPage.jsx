@@ -301,7 +301,11 @@ const CustomerDetailPage = () => {
 
       {/* アクティビティ履歴 */}
       <div className="mt-8">
-        <ActivityTimeline customerId={customerId} refreshKey={refreshTrigger} />
+        <ActivityTimeline
+          type="customer"
+          targetId={customerId}
+          refreshKey={refreshTrigger}
+        />
       </div>
 
       <div className="mt-8">

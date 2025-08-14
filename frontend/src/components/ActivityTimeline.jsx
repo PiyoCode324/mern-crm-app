@@ -1,31 +1,24 @@
-// src/components/ActivityTimeline.jsx
+// src/components/ActivityTimeline.jsx (デバッグ版)
 
 import React, { useState, useEffect, useCallback } from "react";
 import { authorizedRequest } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
 
-const ActivityTimeline = ({ customerId, refreshKey }) => {
-  // アクティビティのステート管理
+const ActivityTimeline = ({ type, targetId, refreshKey }) => {
   const [allActivities, setAllActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // ページネーションのステート
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5; // 1ページあたりの表示件数を設定
+  const itemsPerPage = 5;
 
-  // AuthContextからユーザー情報とトークンを取得
   const { user, token } = useAuth();
 
-  /**
-   * APIからアクティビティ履歴を非同期で取得する関数
-   */
   const fetchActivities = useCallback(async () => {
-    // customerIdとtokenが両方存在しない場合は処理をスキップ
-    if (!customerId || !token) {
-      console.log(
-        "アクティビティ取得スキップ：customerIdまたはトークンがありません。"
-      );
+    console.log("=== fetchActivities START ===");
+    console.log("type:", type, "targetId:", targetId, "token:", token);
+
+    if (!type || !targetId || !token) {
+      console.warn("アクティビティ取得スキップ：必要な情報が不足");
       setLoading(false);
       return;
     }
@@ -33,35 +26,55 @@ const ActivityTimeline = ({ customerId, refreshKey }) => {
     try {
       setLoading(true);
       setError(null);
-      // authorizedRequest関数にトークンを渡してAPIリクエストを実行
-      const res = await authorizedRequest(
-        "GET",
-        `/activities/customer/${customerId}`,
-        null,
-        token
-      );
-      // updatedAtで降順ソート
-      const sortedActivities = res.sort(
+
+      const endpoint = `/activities/${type}/${targetId}`;
+      console.log("APIエンドポイント:", endpoint);
+
+      const res = await authorizedRequest("GET", endpoint, null, token);
+      console.log("APIレスポンス:", res);
+
+      let activitiesArray = [];
+      if (Array.isArray(res)) {
+        activitiesArray = res;
+      } else if (res && Array.isArray(res.data)) {
+        activitiesArray = res.data;
+      } else {
+        console.warn("レスポンスが配列ではありません:", res);
+      }
+
+      console.log("activitiesArray:", activitiesArray);
+
+      const sortedActivities = activitiesArray.sort(
         (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
       );
+
+      console.log("ソート後のactivities:", sortedActivities);
+
       setAllActivities(sortedActivities);
-      setLoading(false);
     } catch (err) {
       console.error("アクティビティの取得エラー:", err);
       setError("アクティビティの取得に失敗しました。");
+    } finally {
       setLoading(false);
+      console.log("=== fetchActivities END ===");
     }
-  }, [customerId, token]); // 依存配列にcustomerIdとtokenを追加
+  }, [type, targetId, token]);
 
-  // コンポーネントがマウントされた時、およびユーザーやトークン、customerId、refreshKeyの状態が変化した時に実行
   useEffect(() => {
-    // ユーザーとトークンが存在する場合、およびcustomerIdが存在する場合のみデータ取得を開始
-    if (user && token && customerId) {
+    console.log("=== useEffect発火 ===", {
+      user,
+      token,
+      type,
+      targetId,
+      refreshKey,
+    });
+    if (user && token && type && targetId) {
       fetchActivities();
+    } else {
+      console.warn("必要な情報が揃っていないためfetchActivities未実行");
     }
-  }, [fetchActivities, user, token, customerId, refreshKey]); // ここにrefreshKeyを追加
+  }, [fetchActivities, user, token, type, targetId, refreshKey]);
 
-  // 現在のページに表示するアクティビティを計算
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentActivities = allActivities.slice(
@@ -70,27 +83,17 @@ const ActivityTimeline = ({ customerId, refreshKey }) => {
   );
   const totalPages = Math.ceil(allActivities.length / itemsPerPage);
 
-  // ページ変更ハンドラ
   const handlePageChange = (newPage) => {
     if (newPage > 0 && newPage <= totalPages) {
       setCurrentPage(newPage);
     }
   };
 
-  /**
-   * タイムスタンプをフォーマットするヘルパー関数
-   * 不正な日付の場合は代替テキストを返す
-   */
   const formatDate = (timestamp) => {
     const date = new Date(timestamp);
-    // 日付オブジェクトが有効かどうかをチェック
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleString();
-    }
-    return "日付不明";
+    return !isNaN(date.getTime()) ? date.toLocaleString() : "日付不明";
   };
 
-  // ローディング中の表示
   if (loading) {
     return (
       <div className="text-center mt-8 text-gray-600">
@@ -99,7 +102,6 @@ const ActivityTimeline = ({ customerId, refreshKey }) => {
     );
   }
 
-  // エラー発生時の表示
   if (error) {
     return <div className="text-center mt-8 text-red-500">エラー: {error}</div>;
   }
@@ -109,6 +111,7 @@ const ActivityTimeline = ({ customerId, refreshKey }) => {
       <h2 className="text-xl font-semibold text-gray-700 mb-4">
         アクティビティ履歴
       </h2>
+
       {currentActivities.length > 0 ? (
         <>
           <div className="space-y-4">
@@ -124,7 +127,7 @@ const ActivityTimeline = ({ customerId, refreshKey }) => {
               </div>
             ))}
           </div>
-          {/* ページネーションコントロール */}
+
           <div className="flex justify-center items-center mt-6 space-x-2">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
@@ -147,7 +150,7 @@ const ActivityTimeline = ({ customerId, refreshKey }) => {
         </>
       ) : (
         <p className="text-gray-500">
-          この顧客に関連するアクティビティはありません。
+          この項目に関連するアクティビティはありません。
         </p>
       )}
     </div>

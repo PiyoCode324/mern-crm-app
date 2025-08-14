@@ -4,31 +4,35 @@ const express = require("express");
 const router = express.Router();
 const { verifyFirebaseToken } = require("../middleware/authMiddleware");
 const {
-  getSales,
-  createSale,
-  updateSale,
-  deleteSale,
-  getSalesSummary,
-  getSalesByCustomerId,
+  createSales,
+  updateSales,
+  deleteSales,
+  getSalesById,
+  getAllSalesByUser,
+  getSalesByCustomer, // ✅ 追加: 新しいコントローラー関数をインポート
 } = require("../controllers/salesController");
 
 // 🔐 認証ミドルウェアをすべてのルートに適用
 router.use(verifyFirebaseToken);
 
-// 📄 案件一覧取得
-router.get("/", getSales);
+// --- ルート定義 ---
 
-// 🔹 案件を新規登録
-router.post("/", createSale);
+// ✅ 非常に重要: 特定の顧客に紐づく案件を取得するルートを追加
+router.get("/customer/:customerId", getSalesByCustomer);
 
-router.get("/summary", getSalesSummary);
+// 📄 ユーザーに紐づく案件を全て取得
+router.get("/", getAllSalesByUser);
 
-router.get("/customer/:customerId", getSalesByCustomerId);
+// 🔹 新しい案件を新規登録
+router.post("/", createSales);
+
+// 📄 特定の案件をIDで取得
+router.get("/:id", getSalesById);
 
 // ✏️ 案件情報を更新
-router.put("/:id", updateSale);
+router.put("/:id", updateSales);
 
 // 🗑️ 案件を削除
-router.delete("/:id", deleteSale);
+router.delete("/:id", deleteSales);
 
 module.exports = router;

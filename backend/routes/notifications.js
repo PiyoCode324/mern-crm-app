@@ -1,17 +1,14 @@
 // backend/routes/notifications.js
 const express = require("express");
-const router = express.Router();
 const { verifyFirebaseToken } = require("../middleware/authMiddleware");
 const {
   getNotifications,
-  addNotification,
   markAsRead,
 } = require("../controllers/notificationController");
 
-router.use(verifyFirebaseToken);
+const router = express.Router();
 
-router.get("/", getNotifications);
-router.post("/", addNotification);
-router.patch("/:id/read", markAsRead);
+router.get("/", verifyFirebaseToken, getNotifications);
+router.patch("/:id/read", verifyFirebaseToken, markAsRead);
 
 module.exports = router;

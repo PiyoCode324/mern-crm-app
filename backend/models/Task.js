@@ -22,13 +22,11 @@ const taskSchema = new mongoose.Schema(
       enum: ["todo", "in_progress", "done"],
       default: "todo",
     },
-    // 💡 修正: assignedToをString型に変更
     // タスクの担当者（Firebase UIDを格納）
     assignedTo: {
       type: String,
       required: true,
     },
-    // 💡 修正: createdByをString型に変更
     // タスクを作成したユーザー（Firebase UIDを格納）
     createdBy: {
       type: String,
@@ -38,6 +36,13 @@ const taskSchema = new mongoose.Schema(
     customer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer", // 'Customer'モデルを参照
+      required: true, // ✅ 修正: 顧客は必須とする
+    },
+    // ✅ 追加: タスクに関連付けられた案件ID
+    sales: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Sales", // 'Sales'モデルを参照
+      required: false, // 案件に紐づかないタスクもあるため必須ではない
     },
     // タスクの期日
     dueDate: {

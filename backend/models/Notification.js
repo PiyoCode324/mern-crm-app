@@ -3,12 +3,30 @@ const mongoose = require("mongoose");
 
 const notificationSchema = new mongoose.Schema(
   {
-    recipientUid: { type: String, required: true }, // 通知を受け取るユーザーUID
-    message: { type: String, required: true }, // 通知本文
-    read: { type: Boolean, default: false }, // 既読フラグ
-    taskId: { type: mongoose.Schema.Types.ObjectId, ref: "Task" }, // 関連タスク
+    // 通知を受け取るユーザーのUID
+    targetUser: {
+      type: String,
+      required: true,
+    },
+    // 通知メッセージの本文
+    message: {
+      type: String,
+      required: true,
+    },
+    // 関連するタスクのID
+    relatedTask: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Task",
+    },
+    // 既読フラグ
+    isRead: {
+      type: Boolean,
+      default: false,
+    },
   },
-  { timestamps: true } // createdAt, updatedAt
+  {
+    timestamps: true,
+  }
 );
 
 module.exports = mongoose.model("Notification", notificationSchema);

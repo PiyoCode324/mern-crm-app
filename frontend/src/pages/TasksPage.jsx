@@ -1,272 +1,462 @@
-// src/pages/TaskPage.jsx
-import React, { useState, useEffect, useRef } from "react";
-import { useAuth } from "../context/AuthContext";
-import { authorizedRequest } from "../services/authService";
-import TaskCard from "../components/TaskCard";
-import TaskForm from "../components/TaskForm";
+// src/pages/TasksPage.jsx
+
+import React, { useState, useEffect } from "react";
 import {
-  fetchNotifications,
-  addNotification,
-} from "../services/notificationService";
+  getTasks,
+  createTask,
+  updateTask,
+  deleteTask,
+} from "../utils/taskApi";
+import { getUsers } from "../utils/userApi";
+import { useAuth } from "../context/AuthContext";
+import { getCustomers } from "../utils/customerApi";
+import { getSales } from "../utils/salesApi";
+
+// コンポーネントのインポート
+import TaskList from "../components/TaskList";
+import CustomModal from "../components/CustomModal";
+import Modal from "../components/Modal";
+
+// 新しいコンポーネント: タスクフォームと詳細表示
+const TaskForm = ({ task, users, customers, sales, onSave, onClose }) => {
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    status: "todo",
+    assignedTo: "",
+    dueDate: "",
+    customerId: "",
+    saleId: "",
+  });
+
+  useEffect(() => {
+    if (task) {
+      setFormData({
+        id: task.id,
+        title: task.title || "",
+        description: task.description || "",
+        status: task.status || "todo",
+        assignedTo: task.assignedTo || "",
+        dueDate: task.dueDate
+          ? new Date(task.dueDate).toISOString().split("T")[0]
+          : "",
+        customerId: task.customerId || "",
+        saleId: task.saleId || "",
+      });
+    } else {
+      setFormData({
+        title: "",
+        description: "",
+        status: "todo",
+        assignedTo: "",
+        dueDate: "",
+        customerId: "",
+        saleId: "",
+      });
+    }
+  }, [task]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <div className="p-8">
+      <h2 className="text-2xl font-bold mb-4">
+        {task ? "タスクを編集" : "新規タスク追加"}
+      </h2>
+      <form onSubmit={handleSubmit}>
+        <div className="mb-4">
+          <label className="block text-gray-700 font-bold mb-2">タイトル</label>
+          <input
+            type="text"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-gray-700 font-bold mb-2">説明</label>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows="4"
+            required
+          ></textarea>
+        </div>
+        <div className="mb-4">
+          <label className="block text-gray-700 font-bold mb-2">
+            ステータス
+          </label>
+          <select
+            name="status"
+            value={formData.status}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="todo">未着手</option>
+            <option value="in-progress">進行中</option>
+            <option value="completed">完了</option>
+            <option value="on-hold">保留</option>
+          </select>
+        </div>
+        <div className="mb-4">
+          <label className="block text-gray-700 font-bold mb-2">担当者</label>
+          <select
+            name="assignedTo"
+            value={formData.assignedTo}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          >
+            <option value="">担当者を選択</option>
+            {users.map((user) => (
+              <option key={user.uid} value={user.uid}>
+                {user.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mb-4">
+          <label className="block text-gray-700 font-bold mb-2">期日</label>
+          <input
+            type="date"
+            name="dueDate"
+            value={formData.dueDate}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-gray-700 font-bold mb-2">顧客</label>
+          <select
+            name="customerId"
+            value={formData.customerId}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">顧客を選択</option>
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {customer.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mb-4">
+          <label className="block text-gray-700 font-bold mb-2">案件</label>
+          <select
+            name="saleId"
+            value={formData.saleId}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">案件を選択</option>
+            {sales.map((sale) => (
+              <option key={sale.id} value={sale.id}>
+                {sale.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex justify-end space-x-4 mt-6">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition duration-300"
+          >
+            キャンセル
+          </button>
+          <button
+            type="submit"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition duration-300"
+          >
+            保存
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+const TaskDetails = ({ task, users, customers, sales, onClose }) => {
+  if (!task) return null;
+
+  const assignedUser = users.find((u) => u.uid === task.assignedTo);
+  const customer = customers.find((c) => c.id === task.customerId);
+  const sale = sales.find((s) => s.id === task.saleId);
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case "todo":
+        return "未着手";
+      case "in-progress":
+        return "進行中";
+      case "completed":
+        return "完了";
+      case "on-hold":
+        return "保留";
+      default:
+        return status;
+    }
+  };
+
+  const formatDueDate = (date) => {
+    try {
+      if (!date) return "未定";
+      const d = new Date(date);
+      return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+    } catch {
+      return "日付エラー";
+    }
+  };
+
+  return (
+    <div className="p-8">
+      <h2 className="text-2xl font-bold mb-4">{task.title}</h2>
+      <div className="space-y-4 text-gray-700">
+        <div>
+          <span className="font-semibold">説明:</span>
+          <p className="whitespace-pre-line">{task.description}</p>
+        </div>
+        <div>
+          <span className="font-semibold">ステータス:</span>{" "}
+          {getStatusText(task.status)}
+        </div>
+        <div>
+          <span className="font-semibold">担当者:</span>{" "}
+          {assignedUser?.name || "未割り当て"}
+        </div>
+        <div>
+          <span className="font-semibold">期日:</span>{" "}
+          {formatDueDate(task.dueDate)}
+        </div>
+        <div>
+          <span className="font-semibold">顧客:</span>{" "}
+          {customer?.name || "未指定"}
+        </div>
+        <div>
+          <span className="font-semibold">案件:</span> {sale?.name || "未指定"}
+        </div>
+      </div>
+      <div className="mt-6 flex justify-end">
+        <button
+          onClick={onClose}
+          className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition duration-300"
+        >
+          閉じる
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const TasksPage = () => {
-  const { user: currentUser, isAuthReady } = useAuth();
   const [tasks, setTasks] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [isFormVisible, setIsFormVisible] = useState(false);
-  const [currentTask, setCurrentTask] = useState(null);
   const [users, setUsers] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [sales, setSales] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // useRef を使って、データが一度ロードされたかどうかを追跡するフラグ
-  const hasLoadedData = useRef(false);
+  // モーダル関連の状態
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
 
-  // --- API呼び出し ---
-  const fetchUsers = async () => {
-    try {
-      console.log("📡 ユーザーリスト取得開始");
-      const response = await authorizedRequest("get", "/users/basic");
-      setUsers(response.users || response);
-      console.log("📡 ユーザーリスト取得成功", response);
-    } catch (err) {
-      console.error("ユーザーリストの取得に失敗しました", err);
+  const { isAuthReady, user: currentUser } = useAuth();
+
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  console.log("TasksPage: currentUser:", currentUser);
+  console.log("TasksPage: currentUser?.uid:", currentUser?.uid);
+
+  useEffect(() => {
+    if (currentUser?.claims?.role === "admin") {
+      setIsAdmin(true);
     }
-  };
+  }, [currentUser]);
 
-  const fetchCustomers = async () => {
+  const fetchInitialData = async () => {
     try {
-      console.log("📡 顧客リスト取得開始");
-      const response = await authorizedRequest("get", "/customers/all");
-      setCustomers(response.customers);
-      console.log("📡 顧客リスト取得成功", response);
-    } catch (err) {
-      console.error("顧客リストの取得に失敗しました", err);
-    }
-  };
+      const [fetchedUsers, fetchedTasks, fetchedCustomers, fetchedSales] =
+        await Promise.all([getUsers(), getTasks(), getCustomers(), getSales()]);
 
-  const fetchTasks = async () => {
-    try {
-      console.log("📡 タスク取得開始");
-      const response = await authorizedRequest("get", "/tasks");
-      setTasks(response);
-      setError(null);
-      console.log(`📡 タスク取得成功 件数: ${response.length}`);
+      setUsers(fetchedUsers);
+      setTasks(fetchedTasks);
+      setCustomers(fetchedCustomers);
+      setSales(fetchedSales);
     } catch (err) {
-      setError("タスクの取得に失敗しました。");
-      console.error(err);
-    }
-  };
-
-  const fetchNotificationsData = async () => {
-    try {
-      console.log("📡 通知取得開始");
-      const data = await fetchNotifications();
-      setNotifications(data);
-      console.log(`📡 通知取得成功 件数: ${data.length}`);
-    } catch (err) {
-      console.error("通知の取得に失敗しました", err);
+      console.error("❌ データ取得に失敗しました:", err);
+      setError(`データの取得に失敗しました: ${err.message}.`);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    // isAuthReadyとcurrentUserが準備完了し、かつまだデータがロードされていない場合
-    if (isAuthReady && currentUser && !hasLoadedData.current) {
-      console.log("🚀 初回データロード開始");
-
-      const loadData = async () => {
-        setLoading(true);
-        try {
-          await Promise.all([
-            fetchUsers(),
-            fetchCustomers(),
-            fetchTasks(),
-            fetchNotificationsData(),
-          ]);
-          // ロードが成功したらフラグをtrueに設定
-          hasLoadedData.current = true;
-        } catch (err) {
-          setError("データの取得に失敗しました。");
-          console.error(err);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      loadData();
-    } else if (isAuthReady && !currentUser) {
-      // ログインしていない場合はローディングを終了し、フラグをリセット
-      setLoading(false);
-      setError("ログインしてください。");
-      hasLoadedData.current = false;
+    if (isAuthReady) {
+      fetchInitialData();
     }
-  }, [isAuthReady, currentUser]);
+  }, [isAuthReady]);
 
-  // --- 通知を既読にする関数 ---
-  const handleMarkAsRead = async (notificationId) => {
+  // タスクの追加または編集モーダルを開く関数
+  const handleOpenFormModal = (task = null) => {
+    setSelectedTask(task);
+    setIsFormModalOpen(true);
+  };
+
+  // タスクの追加または編集モーダルを閉じる関数
+  const handleCloseFormModal = () => {
+    setIsFormModalOpen(false);
+    setSelectedTask(null);
+  };
+
+  // タスクの追加または編集を処理する関数
+  const handleSaveTask = async (taskData) => {
     try {
-      console.log(`🔔 通知を既読にします: id=${notificationId}`);
-      await authorizedRequest("patch", `/notifications/${notificationId}/read`);
-
-      // 成功したら、ローカルの通知リストから該当の通知を削除してUIを更新
-      setNotifications((prevNotes) =>
-        prevNotes.filter((note) => note._id !== notificationId)
-      );
-    } catch (err) {
-      console.error("通知を既読にする処理に失敗しました", err);
-    }
-  };
-
-  // --- 操作 ---
-  const handleTaskAction = () => {
-    fetchTasks();
-    setIsFormVisible(false);
-    setCurrentTask(null);
-  };
-
-  const openFormForNew = () => {
-    setCurrentTask(null);
-    setIsFormVisible(true);
-  };
-
-  const openFormForEdit = (task) => {
-    setCurrentTask(task);
-    setIsFormVisible(true);
-  };
-
-  const handleDeleteTask = async (taskId) => {
-    if (window.confirm("このタスクを削除してもよろしいですか？")) {
-      try {
-        await authorizedRequest("delete", `/tasks/${taskId}`);
-        handleTaskAction();
-      } catch (err) {
-        console.error("タスクの削除に失敗しました", err);
-      }
-    }
-  };
-  const handleSubmitTask = async (formData) => {
-    try {
-      let action = "";
-      let taskId = null;
-      let response; // レスポンスを保持する変数
-
-      if (currentTask?._id) {
-        console.log(`📡 タスク更新リクエスト id=${currentTask._id}`, formData);
-        response = await authorizedRequest(
-          "put",
-          `/tasks/${currentTask._id}`,
-          formData
-        );
-        taskId = currentTask._id;
-        action = "更新";
+      if (taskData.id) {
+        await updateTask(taskData.id, taskData);
       } else {
-        console.log("📡 タスク作成リクエスト", formData);
-        response = await authorizedRequest("post", "/tasks", formData);
-        taskId = response._id; // 新規作成されたタスクのIDを取得
-        action = "作成";
+        await createTask(taskData);
       }
-
-      // タスクが正常に保存された後にのみ通知を追加
-      if (response) {
-        console.log(
-          `📡 通知追加リクエスト: タスク「${formData.title}」が${action}されました`
-        );
-        await addNotification(
-          `タスク「${formData.title}」が${action}されました`,
-          formData.assignedTo,
-          taskId
-        );
-      }
-
-      // タスクと通知の処理がすべて完了した後に、データを再取得
-      await Promise.all([fetchTasks(), fetchNotificationsData()]);
-
-      // フォームを閉じる
-      setIsFormVisible(false);
-      setCurrentTask(null);
+      fetchInitialData();
+      handleCloseFormModal();
     } catch (err) {
-      console.error("タスクの保存に失敗しました", err);
+      console.error("タスクの保存に失敗しました:", err);
+      alert("タスクの保存に失敗しました。");
     }
   };
 
-  if (loading || !isAuthReady || !currentUser) {
+  // タスク詳細モーダルを開く関数
+  const handleViewDetails = (task) => {
+    setSelectedTask(task);
+    setIsViewModalOpen(true);
+  };
+
+  // タスク詳細モーダルを閉じる関数
+  const handleCloseViewModal = () => {
+    setIsViewModalOpen(false);
+    setSelectedTask(null);
+  };
+
+  // 編集ボタンクリック時の処理
+  const handleEditTask = (task) => {
+    handleOpenFormModal(task);
+  };
+
+  // 削除確認モーダルを開く関数
+  const handleOpenDeleteConfirm = (task) => {
+    setSelectedTask(task);
+    setIsConfirmModalOpen(true);
+  };
+
+  // 削除確認モーダルを閉じる関数
+  const handleCloseDeleteConfirm = () => {
+    setIsConfirmModalOpen(false);
+    setSelectedTask(null);
+  };
+
+  // 削除実行関数
+  const handleDeleteTask = async () => {
+    try {
+      if (selectedTask) {
+        await deleteTask(selectedTask.id);
+        fetchInitialData();
+        handleCloseDeleteConfirm();
+      }
+    } catch (err) {
+      console.error("タスクの削除に失敗しました:", err);
+      alert("タスクの削除に失敗しました。");
+    }
+  };
+
+  if (loading || !isAuthReady) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <p className="text-gray-500">{error || "読み込み中..."}</p>
+        <p className="text-xl font-semibold text-gray-700">
+          データを読み込み中...
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-screen text-red-600">
+        <p className="text-xl font-semibold">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">タスク管理</h1>
-      <button
-        onClick={openFormForNew}
-        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-      >
-        新しいタスクを作成
-      </button>
-
-      {/* 通知一覧 */}
-      <div className="mb-8 p-4 border rounded bg-gray-50">
-        <h2 className="text-xl font-semibold mb-2">通知一覧</h2>
-        {notifications.length > 0 ? (
-          <ul className="list-disc list-inside max-h-48 overflow-auto">
-            {notifications.map((note) => (
-              <li
-                key={note._id}
-                className="mb-1 flex items-center justify-between"
-              >
-                <span>
-                  {note.message}{" "}
-                  <span className="text-sm text-gray-500">
-                    ({new Date(note.createdAt).toLocaleString()})
-                  </span>
-                </span>
-                <button
-                  onClick={() => handleMarkAsRead(note._id)}
-                  className="ml-4 text-xs text-white bg-green-500 px-2 py-1 rounded hover:bg-green-600 transition-colors"
-                >
-                  既読
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-gray-500">通知はありません。</p>
-        )}
-      </div>
-
-      <TaskForm
-        isOpen={isFormVisible}
-        onClose={() => setIsFormVisible(false)}
-        onSubmit={handleSubmitTask}
-        task={currentTask}
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-6">タスク一覧</h1>
+      {isAdmin && (
+        <div className="flex justify-end mb-6">
+          <button
+            onClick={() => handleOpenFormModal()}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-700 transition duration-300"
+          >
+            新規タスク追加
+          </button>
+        </div>
+      )}
+      <TaskList
+        tasks={tasks}
         users={users}
         customers={customers}
-        currentUser={currentUser}
+        sales={sales}
+        currentUserUid={currentUser?.uid}
+        onViewDetails={handleViewDetails}
+        onEdit={handleEditTask}
+        onDelete={handleOpenDeleteConfirm}
+        isAdmin={isAdmin}
       />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {tasks?.length > 0 ? (
-          tasks
-            .filter((task) => task.assignedTo === currentUser.uid)
-            .map((task) => (
-              <TaskCard
-                key={task._id}
-                task={task}
-                onEdit={openFormForEdit}
-                onDelete={handleDeleteTask}
-                users={users}
-                currentUserUid={currentUser.uid}
-                onTaskAction={handleTaskAction}
-              />
-            ))
-        ) : (
-          <p className="text-gray-500">タスクはまだありません。</p>
-        )}
-      </div>
+      {/* タスクの追加・編集モーダル */}
+      <CustomModal isOpen={isFormModalOpen} onClose={handleCloseFormModal}>
+        <TaskForm
+          task={selectedTask}
+          users={users}
+          customers={customers}
+          sales={sales}
+          onSave={handleSaveTask}
+          onClose={handleCloseFormModal}
+        />
+      </CustomModal>
+      {/* タスク詳細表示モーダル */}
+      <CustomModal isOpen={isViewModalOpen} onClose={handleCloseViewModal}>
+        <TaskDetails
+          task={selectedTask}
+          users={users}
+          customers={customers}
+          sales={sales}
+          onClose={handleCloseViewModal}
+        />
+      </CustomModal>
+      {/* 削除確認モーダル */}
+      <CustomModal
+        isOpen={isConfirmModalOpen}
+        onClose={handleCloseDeleteConfirm}
+      >
+        <Modal
+          title="タスク削除の確認"
+          message={`タスク「${selectedTask?.title}」を本当に削除しますか？`}
+          onConfirm={handleDeleteTask}
+          onCancel={handleCloseDeleteConfirm}
+        />
+      </CustomModal>
     </div>
   );
 };

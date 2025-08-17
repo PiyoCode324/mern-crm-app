@@ -9,12 +9,16 @@ const TaskForm = ({
   task,
   users,
   customers,
-  currentUser,
+  sales,
+  onCustomerSelect,
 }) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
+  const [customer, setCustomer] = useState("");
+  const [salesId, setSalesId] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [filteredSales, setFilteredSales] = useState([]);
 
   // task が変わったらフィールドを更新
   useEffect(() => {
@@ -22,23 +26,56 @@ const TaskForm = ({
       setTitle(task.title || "");
       setDescription(task.description || "");
       setAssignedTo(task.assignedTo || "");
+      setCustomer(task.customer || "");
+      setSalesId(task.sales || "");
       setDueDate(task.dueDate ? task.dueDate.split("T")[0] : "");
     } else {
       setTitle("");
       setDescription("");
       setAssignedTo("");
+      setCustomer("");
+      setSalesId("");
       setDueDate("");
     }
   }, [task]);
 
+  // 顧客選択時に案件をフィルタリング
+  useEffect(() => {
+    try {
+      if (customer && sales) {
+        const relatedSales = sales.filter((s) => s.customerId === customer);
+        setFilteredSales(relatedSales);
+        if (task?.sales && relatedSales.some((s) => s._id === task.sales)) {
+          setSalesId(task.sales);
+        } else {
+          setSalesId("");
+        }
+        console.log(
+          `✅ 顧客ID: ${customer} に紐づく案件をフィルタリングしました。件数: ${relatedSales.length}`
+        );
+      } else {
+        setFilteredSales([]);
+        setSalesId("");
+        console.log("フィルタリング対象の顧客が選択されていません。");
+      }
+    } catch (err) {
+      console.error("❌ 案件のフィルタリング中にエラーが発生しました:", err);
+      setFilteredSales([]);
+    }
+  }, [customer, sales, task]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({
+    const formData = {
       title,
       description,
       assignedTo,
+      customer,
+      sales: salesId,
       dueDate,
-    });
+    };
+    console.log("📝 送信するタスクデータ:", formData); // 💡 ここでデータを確認
+    onSubmit(formData);
   };
 
   return (
@@ -63,18 +100,53 @@ const TaskForm = ({
             className="border p-2 w-full"
           />
 
+          {/* 顧客選択 */}
+          <select
+            value={customer}
+            onChange={(e) => {
+              setCustomer(e.target.value);
+              onCustomerSelect(e.target.value);
+            }}
+            className="border p-2 w-full"
+            required
+          >
+            <option value="">顧客を選択</option>
+            {customers.map((c) => (
+              <option key={c._id} value={c._id}>
+                {c.companyName || c.name}
+              </option>
+            ))}
+          </select>
+
+          {/* 案件選択 */}
+          <select
+            value={salesId}
+            onChange={(e) => setSalesId(e.target.value)}
+            className="border p-2 w-full"
+          >
+            <option value="">案件を選択（任意）</option>
+            {filteredSales.map((s) => (
+              <option key={s._id} value={s._id}>
+                {s.dealName}
+              </option>
+            ))}
+          </select>
+
           {/* 担当者選択 */}
           <select
             value={assignedTo}
             onChange={(e) => setAssignedTo(e.target.value)}
             className="border p-2 w-full"
+            required
           >
             <option value="">担当者を選択</option>
-            {users.map((user) => (
-              <option key={user.uid} value={user.uid}>
-                {user.displayName}
-              </option>
-            ))}
+            {/* ここで users が undefined の可能性があるため、条件を追加する */}
+            {users &&
+              users.map((user) => (
+                <option key={user._id} value={user._id}>
+                  {user.name}
+                </option>
+              ))}
           </select>
 
           {/* 期日設定 */}

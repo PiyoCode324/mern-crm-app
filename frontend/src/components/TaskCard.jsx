@@ -1,38 +1,107 @@
 // src/components/TaskCard.jsx
 import React from "react";
 
-const TaskCard = ({ task, onEdit, onDelete, users, currentUserUid, onTaskAction }) => {
-  const assignedUser = users.find((user) => user.uid === task.assignedTo);
+const TaskCard = ({
+  task,
+  onEdit,
+  onDelete,
+  users,
+  customers,
+  sales,
+  currentUserUid,
+  onTaskAction,
+  onViewDetails,
+}) => {
+  // ログでIDを比較
+  const assignedUser = users.find((u) => u.uid === task.assignedTo);
+  const customerName =
+    customers.find((c) => String(c._id) === String(task.customer))?.name ||
+    "顧客なし";
+
+  const saleName =
+    sales.find((s) => s._id === task.sales)?.dealName || "案件なし";
+
+  const isAssignedToCurrentUser = task.assignedTo === currentUserUid;
+
+  console.log("TaskCard: isAssignedToCurrentUser:", isAssignedToCurrentUser);
+
+  const statusText = {
+    todo: "未着手",
+    in_progress: "進行中",
+    done: "完了",
+  };
+
+  const statusColors = {
+    todo: "bg-red-500",
+    in_progress: "bg-yellow-500",
+    done: "bg-green-500",
+  };
 
   return (
-    <div className="border rounded p-4 shadow hover:shadow-md transition">
-      <h3 className="text-xl font-semibold mb-2">{task.title}</h3>
-      <p className="text-gray-700 mb-2">{task.description}</p>
-      <p className="text-sm text-gray-500 mb-1">
-        状態: <span className="capitalize">{task.status}</span>
-      </p>
-      <p className="text-sm text-gray-500 mb-1">
-        担当者: {assignedUser ? assignedUser.displayName : "未割当"}
-      </p>
-      <p className="text-sm text-gray-500 mb-3">
-        期日: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "未設定"}
-      </p>
-      {task.assignedTo === currentUserUid && (
-        <div className="flex gap-2">
-          <button
-            onClick={() => onEdit(task)}
-            className="px-3 py-1 bg-yellow-400 rounded hover:bg-yellow-500"
+    <div className="bg-white rounded-lg shadow-lg p-6 flex flex-col justify-between h-full transform transition-transform duration-200 hover:scale-105">
+      <div className="flex-grow">
+        <div className="flex justify-between items-start mb-2">
+          <h3 className="text-xl font-bold text-gray-800 break-words pr-2">
+            {task.title}
+          </h3>
+          <span
+            className={`px-3 py-1 text-sm font-semibold rounded-full text-white whitespace-nowrap ${
+              statusColors[task.status]
+            }`}
           >
-            編集
-          </button>
-          <button
-            onClick={() => onDelete(task._id)}
-            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-          >
-            削除
-          </button>
+            {statusText[task.status]}
+          </span>
         </div>
-      )}
+        <p className="text-gray-600 mb-4 text-sm line-clamp-3">
+          {task.description}
+        </p>
+
+        <div className="space-y-2 text-gray-700 text-sm">
+          <div className="flex items-center">
+            <span>担当者: {assignedUser?.displayName || "不明"}</span>
+          </div>
+          <div className="flex items-center">
+            <span>
+              期限:{" "}
+              {task.dueDate
+                ? new Date(task.dueDate).toLocaleDateString("ja-JP")
+                : "期限なし"}
+            </span>
+          </div>
+          <div className="flex items-center">
+            <span>顧客: {customerName}</span>
+          </div>
+          <div className="flex items-center">
+            <span>案件: {saleName}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-2 justify-end items-center">
+        <button
+          onClick={() => onViewDetails(task)}
+          className="bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors py-2 px-3 rounded-full text-sm font-medium flex items-center gap-1"
+        >
+          詳細
+        </button>
+
+        {isAssignedToCurrentUser && (
+          <>
+            <button
+              onClick={() => onEdit(task)}
+              className="bg-yellow-500 text-white hover:bg-yellow-600 transition-colors py-2 px-3 rounded-full text-sm font-medium flex items-center gap-1"
+            >
+              編集
+            </button>
+            <button
+              onClick={() => onDelete(task._id)}
+              className="bg-red-500 text-white hover:bg-red-600 transition-colors py-2 px-3 rounded-full text-sm font-medium flex items-center gap-1"
+            >
+              削除
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 };

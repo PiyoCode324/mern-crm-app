@@ -50,16 +50,12 @@ const TaskForm = ({
         } else {
           setSalesId("");
         }
-        console.log(
-          `✅ 顧客ID: ${customer} に紐づく案件をフィルタリングしました。件数: ${relatedSales.length}`
-        );
       } else {
         setFilteredSales([]);
         setSalesId("");
-        console.log("フィルタリング対象の顧客が選択されていません。");
       }
     } catch (err) {
-      console.error("❌ 案件のフィルタリング中にエラーが発生しました:", err);
+      console.error("❌ 案件のフィルタリング中にエラー:", err);
       setFilteredSales([]);
     }
   }, [customer, sales, task]);
@@ -69,12 +65,11 @@ const TaskForm = ({
     const formData = {
       title,
       description,
-      assignedTo,
+      assignedTo, // Firebase UID をそのまま送信
       customer,
       sales: salesId,
       dueDate,
     };
-    console.log("📝 送信するタスクデータ:", formData); // 💡 ここでデータを確認
     onSubmit(formData);
   };
 
@@ -132,7 +127,7 @@ const TaskForm = ({
             ))}
           </select>
 
-          {/* 担当者選択 */}
+          {/* 担当者選択（UIDで照合） */}
           <select
             value={assignedTo}
             onChange={(e) => setAssignedTo(e.target.value)}
@@ -140,10 +135,9 @@ const TaskForm = ({
             required
           >
             <option value="">担当者を選択</option>
-            {/* ここで users が undefined の可能性があるため、条件を追加する */}
             {users &&
               users.map((user) => (
-                <option key={user._id} value={user._id}>
+                <option key={user.uid} value={user.uid}>
                   {user.name}
                 </option>
               ))}

@@ -77,3 +77,21 @@ export const deleteTask = async (taskId) => {
     throw error;
   }
 };
+
+/**
+ * ✅ 特定タスクのアクティビティを取得します。
+ * @param {string} taskId - タスクID
+ * @returns {Promise<Array>} アクティビティ配列
+ */
+export const getTaskActivities = async (taskId) => {
+  try {
+    const response = await api.get(`/activities/tasks/${taskId}`);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "タスクのアクティビティ取得に失敗しました:",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
+};

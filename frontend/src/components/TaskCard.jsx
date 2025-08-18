@@ -1,19 +1,24 @@
 // src/components/TaskCard.jsx
+
 import React from "react";
 
 const TaskCard = ({
   task,
   onEdit,
   onDelete,
-  users,
+  users, // ★ このプロップは使わなくなります
   customers,
   sales,
   currentUserUid,
   onTaskAction,
   onViewDetails,
+  assignedToName, // ★ 新しく追加されたプロップ
 }) => {
-  // ログでIDを比較
-  const assignedUser = users.find((u) => u.uid === task.assignedTo);
+  // ✅ 担当者名の解決ロジックを削除し、代わりにassignedToNameプロップを使用
+  // const assignedUser =
+  //   users.find((u) => u.uid === task.assignedTo) ||
+  //   users.find((u) => u._id === task.assignedTo);
+
   const customerName =
     customers.find((c) => String(c._id) === String(task.customer))?.name ||
     "顧客なし";
@@ -21,9 +26,8 @@ const TaskCard = ({
   const saleName =
     sales.find((s) => s._id === task.sales)?.dealName || "案件なし";
 
-  const isAssignedToCurrentUser = task.assignedTo === currentUserUid;
-
-  console.log("TaskCard: isAssignedToCurrentUser:", isAssignedToCurrentUser);
+  const isAssignedToCurrentUser =
+    String(task.assignedTo) === String(currentUserUid);
 
   const statusText = {
     todo: "未着手",
@@ -58,7 +62,8 @@ const TaskCard = ({
 
         <div className="space-y-2 text-gray-700 text-sm">
           <div className="flex items-center">
-            <span>担当者: {assignedUser?.displayName || "不明"}</span>
+            {/* ★ ここを修正: assignedToName を直接表示 */}
+            <span>担当者: {assignedToName || "不明"}</span>
           </div>
           <div className="flex items-center">
             <span>

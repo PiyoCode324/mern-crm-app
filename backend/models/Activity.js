@@ -48,7 +48,7 @@ const activitySchema = new Schema(
     }, // ✅ 修正: 活動が紐づく担当ユーザーのIDを追加
     assignedUserId: {
       type: String,
-      required: true,
+      required: false,
       index: true,
     }, // 変更前のデータ（任意で追加。差分を記録したい場合に便利）
     before: {

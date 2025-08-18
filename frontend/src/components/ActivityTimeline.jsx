@@ -1,11 +1,11 @@
 // src/components/ActivityTimeline.jsx (デバッグ版)
 
 import React, { useState, useEffect, useCallback } from "react";
-import { authorizedRequest } from "../services/authService";
 import { useAuth } from "../context/AuthContext";
+import { getTaskActivities } from "../utils/taskApi";
 
 const ActivityTimeline = ({ type, targetId, refreshKey }) => {
-  const [allActivities, setAllActivities] = useState([]);
+  const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -14,79 +14,45 @@ const ActivityTimeline = ({ type, targetId, refreshKey }) => {
   const { user, token } = useAuth();
 
   const fetchActivities = useCallback(async () => {
-    console.log("=== fetchActivities START ===");
-    console.log("type:", type, "targetId:", targetId, "token:", token);
+    if (!type || !targetId) return;
 
-    if (!type || !targetId || !token) {
-      console.warn("アクティビティ取得スキップ：必要な情報が不足");
-      setLoading(false);
-      return;
-    }
+    setLoading(true);
+    setError(null);
 
     try {
-      setLoading(true);
-      setError(null);
-
-      const endpoint = `/activities/${type}/${targetId}`;
-      console.log("APIエンドポイント:", endpoint);
-
-      const res = await authorizedRequest("GET", endpoint, null, token);
-      console.log("APIレスポンス:", res);
-
-      let activitiesArray = [];
-      if (Array.isArray(res)) {
-        activitiesArray = res;
-      } else if (res && Array.isArray(res.data)) {
-        activitiesArray = res.data;
+      let res = [];
+      if (type === "task") {
+        res = await getTaskActivities(targetId);
       } else {
-        console.warn("レスポンスが配列ではありません:", res);
+        console.warn("未対応の type:", type);
+        res = [];
       }
 
-      console.log("activitiesArray:", activitiesArray);
-
-      const sortedActivities = activitiesArray.sort(
+      const sorted = res.sort(
         (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
       );
-
-      console.log("ソート後のactivities:", sortedActivities);
-
-      setAllActivities(sortedActivities);
+      setActivities(sorted);
     } catch (err) {
-      console.error("アクティビティの取得エラー:", err);
+      console.error("アクティビティ取得エラー:", err);
       setError("アクティビティの取得に失敗しました。");
     } finally {
       setLoading(false);
-      console.log("=== fetchActivities END ===");
     }
-  }, [type, targetId, token]);
+  }, [type, targetId]);
 
   useEffect(() => {
-    console.log("=== useEffect発火 ===", {
-      user,
-      token,
-      type,
-      targetId,
-      refreshKey,
-    });
-    if (user && token && type && targetId) {
+    if (user && type && targetId) {
       fetchActivities();
-    } else {
-      console.warn("必要な情報が揃っていないためfetchActivities未実行");
     }
-  }, [fetchActivities, user, token, type, targetId, refreshKey]);
+  }, [user, type, targetId, refreshKey, fetchActivities]);
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentActivities = allActivities.slice(
-    indexOfFirstItem,
-    indexOfLastItem
-  );
-  const totalPages = Math.ceil(allActivities.length / itemsPerPage);
+  const currentActivities = activities.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(activities.length / itemsPerPage);
 
   const handlePageChange = (newPage) => {
-    if (newPage > 0 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-    }
+    if (newPage > 0 && newPage <= totalPages) setCurrentPage(newPage);
   };
 
   const formatDate = (timestamp) => {
@@ -94,17 +60,13 @@ const ActivityTimeline = ({ type, targetId, refreshKey }) => {
     return !isNaN(date.getTime()) ? date.toLocaleString() : "日付不明";
   };
 
-  if (loading) {
+  if (loading)
     return (
-      <div className="text-center mt-8 text-gray-600">
+      <p className="text-center mt-8 text-gray-600">
         アクティビティ履歴を読み込み中...
-      </div>
+      </p>
     );
-  }
-
-  if (error) {
-    return <div className="text-center mt-8 text-red-500">エラー: {error}</div>;
-  }
+  if (error) return <p className="text-center mt-8 text-red-500">{error}</p>;
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md font-sans">

@@ -10,7 +10,6 @@ const TaskForm = ({
   users,
   customers,
   sales,
-  onCustomerSelect,
 }) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -22,6 +21,7 @@ const TaskForm = ({
 
   // task が変わったらフィールドを更新
   useEffect(() => {
+    console.log("📝 TaskForm useEffect task change:", task);
     if (task) {
       setTitle(task.title || "");
       setDescription(task.description || "");
@@ -41,9 +41,14 @@ const TaskForm = ({
 
   // 顧客選択時に案件をフィルタリング
   useEffect(() => {
+    console.log("📝 TaskForm useEffect customer/sales change:", {
+      customer,
+      sales,
+    });
     try {
       if (customer && sales) {
         const relatedSales = sales.filter((s) => s.customerId === customer);
+        console.log("🔍 Filtered sales:", relatedSales);
         setFilteredSales(relatedSales);
         if (task?.sales && relatedSales.some((s) => s._id === task.sales)) {
           setSalesId(task.sales);
@@ -65,11 +70,12 @@ const TaskForm = ({
     const formData = {
       title,
       description,
-      assignedTo, // Firebase UID をそのまま送信
+      assignedTo,
       customer,
       sales: salesId,
       dueDate,
     };
+    console.log("📝 TaskForm handleSubmit formData:", formData);
     onSubmit(formData);
   };
 
@@ -99,8 +105,8 @@ const TaskForm = ({
           <select
             value={customer}
             onChange={(e) => {
+              console.log("📝 Customer selected:", e.target.value);
               setCustomer(e.target.value);
-              onCustomerSelect(e.target.value);
             }}
             className="border p-2 w-full"
             required
@@ -116,7 +122,10 @@ const TaskForm = ({
           {/* 案件選択 */}
           <select
             value={salesId}
-            onChange={(e) => setSalesId(e.target.value)}
+            onChange={(e) => {
+              console.log("📝 Sales selected:", e.target.value);
+              setSalesId(e.target.value);
+            }}
             className="border p-2 w-full"
           >
             <option value="">案件を選択（任意）</option>
@@ -130,7 +139,10 @@ const TaskForm = ({
           {/* 担当者選択（UIDで照合） */}
           <select
             value={assignedTo}
-            onChange={(e) => setAssignedTo(e.target.value)}
+            onChange={(e) => {
+              console.log("📝 Assigned user selected:", e.target.value);
+              setAssignedTo(e.target.value);
+            }}
             className="border p-2 w-full"
             required
           >
@@ -138,7 +150,7 @@ const TaskForm = ({
             {users &&
               users.map((user) => (
                 <option key={user.uid} value={user.uid}>
-                  {user.name}
+                  {user.displayName}
                 </option>
               ))}
           </select>
@@ -147,14 +159,20 @@ const TaskForm = ({
           <input
             type="date"
             value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
+            onChange={(e) => {
+              console.log("📝 Due date selected:", e.target.value);
+              setDueDate(e.target.value);
+            }}
             className="border p-2 w-full"
           />
 
           <div className="flex justify-end space-x-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => {
+                console.log("📝 TaskForm modal closed");
+                onClose();
+              }}
               className="px-4 py-2 bg-gray-300 rounded"
             >
               キャンセル

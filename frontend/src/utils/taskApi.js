@@ -2,94 +2,80 @@
 
 import api from "./api";
 
-// タスク関連のエンドポイント専用のAxiosインスタンスを作成
 const tasksApi = api.create({
   baseURL: `${api.defaults.baseURL}/tasks`,
 });
 
-/**
- * すべてのタスクを取得します。
- * @returns {Promise<Array>} タスクの配列
- */
 export const getTasks = async () => {
   try {
+    console.log("📝 getTasks called");
     const response = await api.get("/tasks");
+    console.log(`✅ getTasks response: ${response.data.length} tasks fetched`);
     return response.data;
   } catch (error) {
     console.error(
-      "タスクの取得に失敗しました:",
+      "❌ タスクの取得に失敗しました:",
       error.response?.data || error.message
     );
     throw error;
   }
 };
 
-/**
- * 新しいタスクを作成します。
- * @param {object} taskData - 新しいタスクのデータ
- * @returns {Promise<object>} 作成されたタスク
- */
 export const createTask = async (taskData) => {
   try {
+    console.log("📝 createTask called with:", taskData);
     const response = await tasksApi.post("/", taskData);
+    console.log("✅ Task created:", response.data);
     return response.data;
   } catch (error) {
     console.error(
-      "タスクの作成に失敗しました:",
+      "❌ タスクの作成に失敗しました:",
       error.response?.data || error.message
     );
     throw error;
   }
 };
 
-/**
- * 既存のタスクを更新します。
- * @param {string} taskId - 更新するタスクのID
- * @param {object} updateData - 更新データ
- * @returns {Promise<object>} 更新されたタスク
- */
 export const updateTask = async (taskId, updateData) => {
   try {
+    console.log(`📝 updateTask called for taskId: ${taskId}`, updateData);
     const response = await tasksApi.put(`/${taskId}`, updateData);
+    console.log("✅ Task updated:", response.data);
     return response.data;
   } catch (error) {
     console.error(
-      "タスクの更新に失敗しました:",
+      "❌ タスクの更新に失敗しました:",
       error.response?.data || error.message
     );
     throw error;
   }
 };
 
-/**
- * タスクを削除します。
- * @param {string} taskId - 削除するタスクのID
- * @returns {Promise<void>}
- */
 export const deleteTask = async (taskId) => {
   try {
+    console.log(`📝 deleteTask called for taskId: ${taskId}`);
     await tasksApi.delete(`/${taskId}`);
+    console.log(`✅ Task deleted: ${taskId}`);
   } catch (error) {
     console.error(
-      "タスクの削除に失敗しました:",
+      "❌ タスクの削除に失敗しました:",
       error.response?.data || error.message
     );
     throw error;
   }
 };
 
-/**
- * ✅ 特定タスクのアクティビティを取得します。
- * @param {string} taskId - タスクID
- * @returns {Promise<Array>} アクティビティ配列
- */
 export const getTaskActivities = async (taskId) => {
   try {
+    console.log(`📝 getTaskActivities called for taskId: ${taskId}`);
     const response = await api.get(`/activities/tasks/${taskId}`);
+    console.log(
+      `✅ ${response.data.length} activities fetched for taskId: ${taskId}`
+    );
     return response.data;
   } catch (error) {
     console.error(
-      "タスクのアクティビティ取得に失敗しました:",
+      "❌ タスクのアクティビティ取得に失敗しました:",
       error.response?.data || error.message
     );
     throw error;

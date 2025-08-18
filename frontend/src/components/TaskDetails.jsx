@@ -3,10 +3,17 @@
 import React from "react";
 import ActivityTimeline from "./ActivityTimeline";
 
-const TaskDetails = ({ task, users, customers, sales, onClose }) => {
+// ✅ 追加: refreshKeyプロップを受け取る
+const TaskDetails = ({
+  task,
+  users,
+  customers,
+  sales,
+  onClose,
+  refreshKey,
+}) => {
   if (!task) return null;
 
-  // 担当者を Firebase UID で照合
   const assignedUser = users.find((u) => u.uid === task.assignedTo);
   const customer = customers.find((c) => c._id === task.customer);
   const sale = sales.find((s) => s._id === task.sales);
@@ -44,7 +51,7 @@ const TaskDetails = ({ task, users, customers, sales, onClose }) => {
         </div>
         <div>
           <span className="font-semibold">担当者:</span>{" "}
-          {assignedUser?.name || "未割り当て"}
+          {assignedUser?.displayName || "未割り当て"}
         </div>
         <div>
           <span className="font-semibold">期日:</span>{" "}
@@ -60,12 +67,12 @@ const TaskDetails = ({ task, users, customers, sales, onClose }) => {
         </div>
       </div>
 
-      {/* ✅ タスクのアクティビティログを表示 */}
       <div className="mt-8">
         <ActivityTimeline
           type="task"
           targetId={task._id}
-          refreshKey={task._id}
+          // ✅ 修正: task._id ではなく、新しいrefreshKeyを渡す
+          refreshKey={refreshKey}
         />
       </div>
 

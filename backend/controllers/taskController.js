@@ -13,19 +13,22 @@ const { addNotification } = require("./notificationController");
  */
 const recordActivity = async (
   userId,
-  type,
+  action,
   taskId,
   description,
   customerId = null,
   salesId = null,
   assignedUserId = null,
   before = null,
-  after = null
+  after = null,
+  targetId = null,
+  timestamp = new Date()
 ) => {
   try {
+    console.log("📝 recordActivity start:", { userId, action, taskId });
     const activity = new Activity({
       userId,
-      action: type,
+      action,
       taskId,
       description,
       customerId,
@@ -34,8 +37,11 @@ const recordActivity = async (
       before,
       after,
       targetModel: "Task",
+      targetId: targetId || taskId, // targetId が指定されなければ taskId を使用
+      updatedAt: timestamp,
     });
     await activity.save();
+    console.log("✅ recordActivity success");
   } catch (err) {
     console.error("❌ アクティビティ記録エラー:", err.message);
   }
@@ -45,6 +51,7 @@ const recordActivity = async (
  * @desc 新規タスク作成
  */
 exports.createTask = asyncHandler(async (req, res) => {
+  console.log("📝 createTask start", req.body);
   const { title, description, assignedTo, customer, sales, dueDate } = req.body;
   const createdBy = req.user.uid;
 
@@ -59,6 +66,7 @@ exports.createTask = asyncHandler(async (req, res) => {
   });
 
   const task = await newTask.save();
+  console.log("✅ Task saved:", task._id);
 
   const createdByUser = await User.findOne({ uid: createdBy });
   const assignedUser = await User.findOne({ uid: assignedTo });
@@ -71,6 +79,7 @@ exports.createTask = asyncHandler(async (req, res) => {
     task.title
   }」を${assignedUser?.displayName || "不明なユーザー"}に割り当てました。`;
 
+  console.log("🔔 Adding notification for assigned user");
   await addNotification({
     message,
     targetUser: assignedTo,
@@ -78,6 +87,7 @@ exports.createTask = asyncHandler(async (req, res) => {
   });
 
   if (createdBy !== assignedTo) {
+    console.log("🔔 Adding notification for creator");
     await addNotification({
       message: `${assignedUser?.displayName || "不明なユーザー"}がタスク「${
         task.title
@@ -95,9 +105,13 @@ exports.createTask = asyncHandler(async (req, res) => {
     `タスク「${task.title}」を作成しました。`,
     customer,
     sales,
-    assignedTo
+    assignedTo,
+    null,
+    task,
+    task._id // targetId を taskId に設定
   );
 
+  console.log("📝 createTask end");
   res.status(201).json(task);
 });
 
@@ -105,11 +119,15 @@ exports.createTask = asyncHandler(async (req, res) => {
  * @desc タスク更新
  */
 exports.updateTask = asyncHandler(async (req, res) => {
+  console.log("📝 updateTask start", req.body);
   const { title, description, status, assignedTo, customer, sales, dueDate } =
     req.body;
   const task = await Task.findById(req.params.id);
 
-  if (!task) return res.status(404).json({ msg: "タスクが見つかりません" });
+  if (!task) {
+    console.log("❌ Task not found:", req.params.id);
+    return res.status(404).json({ msg: "タスクが見つかりません" });
+  }
 
   const beforeTask = task.toObject();
   const updatedFields = {};
@@ -121,9 +139,9 @@ exports.updateTask = asyncHandler(async (req, res) => {
     updatedFields.status = status;
   if (assignedTo !== undefined && assignedTo !== task.assignedTo)
     updatedFields.assignedTo = assignedTo;
-  if (customer !== undefined && customer !== task.customer.toString())
+  if (customer !== undefined && String(customer) !== String(task.customer))
     updatedFields.customer = customer;
-  if (sales !== undefined && sales !== task.sales.toString())
+  if (sales !== undefined && String(sales) !== String(task.sales))
     updatedFields.sales = sales;
   if (
     dueDate &&
@@ -137,6 +155,8 @@ exports.updateTask = asyncHandler(async (req, res) => {
     { new: true }
   );
 
+  console.log("✅ Task updated:", updatedTask._id);
+
   const activityDescriptions = [];
   const user = await User.findOne({ uid: req.user.uid });
 
@@ -144,13 +164,6 @@ exports.updateTask = asyncHandler(async (req, res) => {
     activityDescriptions.push(
       `ステータスを「${beforeTask.status}」から「${updatedTask.status}」に変更`
     );
-    await addNotification({
-      message: `${user?.displayName || "不明"}が、タスク「${
-        updatedTask.title
-      }」のステータスを更新しました。`,
-      targetUser: updatedTask.assignedTo,
-      relatedTask: updatedTask._id,
-    });
   }
 
   if (updatedFields.assignedTo) {
@@ -161,24 +174,26 @@ exports.updateTask = asyncHandler(async (req, res) => {
         afterUser?.displayName || "未割り当て"
       }」に変更`
     );
+  }
 
-    await addNotification({
-      message: `${user?.displayName || "不明"}が、タスク「${
-        updatedTask.title
-      }」の担当者をあなたに割り当てました。`,
-      targetUser: updatedTask.assignedTo,
-      relatedTask: updatedTask._id,
-    });
+  if (updatedFields.customer) {
+    const beforeCustomer = await Customer.findById(beforeTask.customer);
+    const afterCustomer = await Customer.findById(updatedTask.customer);
+    activityDescriptions.push(
+      `顧客を「${beforeCustomer?.name || "未指定"}」から「${
+        afterCustomer?.name || "未指定"
+      }」に変更`
+    );
+  }
 
-    if (beforeTask.assignedTo) {
-      await addNotification({
-        message: `${user?.displayName || "不明"}が、タスク「${
-          updatedTask.title
-        }」の担当者をあなたから変更しました。`,
-        targetUser: beforeTask.assignedTo,
-        relatedTask: updatedTask._id,
-      });
-    }
+  if (updatedFields.sales) {
+    const beforeSales = await Sales.findById(beforeTask.sales);
+    const afterSales = await Sales.findById(updatedTask.sales);
+    activityDescriptions.push(
+      `案件を「${beforeSales?.dealName || "未指定"}」から「${
+        afterSales?.dealName || "未指定"
+      }」に変更`
+    );
   }
 
   if (updatedFields.title)
@@ -204,10 +219,12 @@ exports.updateTask = asyncHandler(async (req, res) => {
       updatedTask.sales,
       updatedTask.assignedTo,
       beforeTask,
-      updatedTask
+      updatedTask,
+      updatedTask._id // targetId を設定
     );
   }
 
+  console.log("📝 updateTask end");
   res.json(updatedTask);
 });
 
@@ -215,8 +232,12 @@ exports.updateTask = asyncHandler(async (req, res) => {
  * @desc タスク削除
  */
 exports.deleteTask = asyncHandler(async (req, res) => {
+  console.log("📝 deleteTask start:", req.params.id);
   const task = await Task.findById(req.params.id);
-  if (!task) return res.status(404).json({ msg: "タスクが見つかりません" });
+  if (!task) {
+    console.log("❌ Task not found for delete:", req.params.id);
+    return res.status(404).json({ msg: "タスクが見つかりません" });
+  }
 
   const user = await User.findOne({ uid: req.user.uid });
 
@@ -246,10 +267,12 @@ exports.deleteTask = asyncHandler(async (req, res) => {
     task.sales,
     task.assignedTo,
     task,
-    null
+    null,
+    task._id // targetId を設定
   );
 
   await Task.findByIdAndDelete(req.params.id);
+  console.log("✅ deleteTask success");
   res.status(200).json({ message: "タスクを削除しました。" });
 });
 
@@ -257,10 +280,12 @@ exports.deleteTask = asyncHandler(async (req, res) => {
  * @desc 全タスク取得（自分が作成 or 自分に割り当て）
  */
 exports.getAllTasks = asyncHandler(async (req, res) => {
+  console.log("📝 getAllTasks start");
   const tasks = await Task.find({
     $or: [{ assignedTo: req.user.uid }, { createdBy: req.user.uid }],
   }).sort({ createdAt: -1 });
 
+  console.log(`✅ getAllTasks found ${tasks.length} tasks`);
   res.status(200).json(tasks);
 });
 
@@ -268,29 +293,43 @@ exports.getAllTasks = asyncHandler(async (req, res) => {
  * @desc 顧客別タスク取得
  */
 exports.getTasksByCustomer = asyncHandler(async (req, res) => {
+  console.log("📝 getTasksByCustomer start:", req.params.id);
   const tasks = await Task.find({
     customer: req.params.id,
     $or: [{ assignedTo: req.user.uid }, { createdBy: req.user.uid }],
   }).sort({ createdAt: -1 });
 
+  console.log(`✅ getTasksByCustomer found ${tasks.length} tasks`);
   res.status(200).json(tasks);
 });
 
 /**
- * @desc タスク単位のアクティビティ履歴取得
+ * @desc タスク詳細取得（アクティビティ込み）
  */
-exports.getTaskActivities = asyncHandler(async (req, res) => {
+exports.getTaskById = asyncHandler(async (req, res) => {
+  console.log("📝 getTaskById start:", req.params.id);
   try {
     const taskId = req.params.id;
-    const activities = await Activity.find({ taskId })
-      .sort({ createdAt: -1 })
-      .populate("customerId", "name")
-      .populate("salesId", "dealName")
-      .populate("taskId", "title");
+    const task = await Task.findById(taskId)
+      .populate("customer", "name")
+      .populate("sales", "dealName")
+      .populate("assignedTo", "displayName email");
 
-    res.status(200).json(activities);
+    if (!task) {
+      console.log("❌ Task not found in getTaskById:", taskId);
+      return res.status(404).json({ msg: "タスクが見つかりません" });
+    }
+
+    const activities = await Activity.find({ taskId })
+      .sort({ updatedAt: -1 })
+      .populate("userId", "displayName")
+      .populate("customerId", "name")
+      .populate("salesId", "dealName");
+
+    console.log(`✅ getTaskById found ${activities.length} activities`);
+    res.status(200).json({ task, activities });
   } catch (err) {
-    console.error("❌ タスクアクティビティ取得エラー:", err.message);
-    res.status(500).send("タスクアクティビティの取得に失敗しました。");
+    console.error("❌ タスク詳細取得エラー:", err.message);
+    res.status(500).send("タスク詳細の取得に失敗しました。");
   }
 });

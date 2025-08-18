@@ -1,9 +1,7 @@
 // src/pages/TasksPage.jsx
 
 import React, { useState, useEffect } from "react";
-// authorizedRequest を authService からインポート
 import { authorizedRequest } from "../services/authService";
-// 認証状態の確認に AuthContext を使用
 import { useAuth } from "../context/AuthContext";
 
 import TaskList from "../components/TaskList";
@@ -18,18 +16,18 @@ const TasksPage = () => {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [tasksRefreshKey, setTasksRefreshKey] = useState(0); // ✅ アクティビティ更新用キー
 
   const [selectedTask, setSelectedTask] = useState(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
-  // AuthContextは認証状態の確認のみに使用
   const { isAuthReady, user: currentUser } = useAuth();
 
   const fetchInitialData = async () => {
+    console.log("📝 TasksPage fetchInitialData 開始");
     try {
-      // authorizedRequest を使用してすべてのデータを取得
       const [fetchedUsers, fetchedTasks, fetchedCustomers, fetchedSales] =
         await Promise.all([
           authorizedRequest("get", "/users/basic"),
@@ -38,19 +36,19 @@ const TasksPage = () => {
           authorizedRequest("get", "/sales"),
         ]);
 
-      // APIレスポンスをコンソールに出力して確認
-      console.log("Fetched Users:", fetchedUsers);
-      console.log("Fetched Tasks:", fetchedTasks);
+      console.log("✅ fetchInitialData 結果:", {
+        fetchedUsers,
+        fetchedTasks,
+        fetchedCustomers,
+        fetchedSales,
+      });
 
-      // ここを修正：APIレスポンスの形式に合わせてデータをセット
-      // /users/basicが{"users": [...]}形式で返される場合
       setUsers(fetchedUsers.users);
-
       setTasks(fetchedTasks);
       setCustomers(fetchedCustomers);
       setSales(fetchedSales);
     } catch (err) {
-      console.error(err);
+      console.error("❌ fetchInitialData エラー:", err);
       setError("データの取得に失敗しました");
     } finally {
       setLoading(false);
@@ -58,52 +56,63 @@ const TasksPage = () => {
   };
 
   useEffect(() => {
-    // 認証が完了したらデータをフェッチ
     if (isAuthReady) {
+      console.log("📝 isAuthReady true -> fetchInitialData");
       fetchInitialData();
     }
   }, [isAuthReady]);
 
   const handleOpenFormModal = (task = null) => {
+    console.log("📝 handleOpenFormModal task:", task);
     setSelectedTask(task);
     setIsFormModalOpen(true);
   };
 
   const handleCloseFormModal = () => {
+    console.log("📝 handleCloseFormModal");
     setSelectedTask(null);
     setIsFormModalOpen(false);
   };
 
   const handleSaveTask = async (taskData) => {
+    console.log("📝 handleSaveTask taskData:", taskData);
     try {
       if (selectedTask) {
+        console.log("📝 Updating existing task:", selectedTask._id);
         await authorizedRequest("put", `/tasks/${selectedTask._id}`, taskData);
       } else {
+        console.log("📝 Creating new task");
         await authorizedRequest("post", "/tasks", taskData);
       }
-      fetchInitialData();
+      await fetchInitialData();
       handleCloseFormModal();
+      setTasksRefreshKey((prevKey) => prevKey + 1);
+      console.log("✅ Task saved, tasksRefreshKey:", tasksRefreshKey + 1);
     } catch (err) {
-      console.error(err);
+      console.error("❌ handleSaveTask エラー:", err);
     }
   };
 
   const handleViewDetails = (task) => {
+    console.log("📝 handleViewDetails task:", task);
     setSelectedTask(task);
     setIsDetailsModalOpen(true);
   };
 
   const handleCloseDetailsModal = () => {
+    console.log("📝 handleCloseDetailsModal");
     setSelectedTask(null);
     setIsDetailsModalOpen(false);
   };
 
   const handleOpenDeleteConfirm = (task) => {
+    console.log("📝 handleOpenDeleteConfirm task:", task);
     setSelectedTask(task);
     setIsConfirmModalOpen(true);
   };
 
   const handleCloseDeleteConfirm = () => {
+    console.log("📝 handleCloseDeleteConfirm");
     setSelectedTask(null);
     setIsConfirmModalOpen(false);
   };
@@ -111,12 +120,13 @@ const TasksPage = () => {
   const handleDeleteTask = async () => {
     try {
       if (selectedTask) {
+        console.log("📝 handleDeleteTask task:", selectedTask._id);
         await authorizedRequest("delete", `/tasks/${selectedTask._id}`);
-        fetchInitialData();
+        await fetchInitialData();
         handleCloseDeleteConfirm();
       }
     } catch (err) {
-      console.error(err);
+      console.error("❌ handleDeleteTask エラー:", err);
     }
   };
 
@@ -169,6 +179,7 @@ const TasksPage = () => {
           customers={customers}
           sales={sales}
           onClose={handleCloseDetailsModal}
+          refreshKey={tasksRefreshKey}
         />
       </CustomModal>
 

@@ -6,19 +6,13 @@ const TaskCard = ({
   task,
   onEdit,
   onDelete,
-  users, // ★ このプロップは使わなくなります
   customers,
   sales,
   currentUserUid,
   onTaskAction,
   onViewDetails,
-  assignedToName, // ★ 新しく追加されたプロップ
+  assignedToName, // 追加済み
 }) => {
-  // ✅ 担当者名の解決ロジックを削除し、代わりにassignedToNameプロップを使用
-  // const assignedUser =
-  //   users.find((u) => u.uid === task.assignedTo) ||
-  //   users.find((u) => u._id === task.assignedTo);
-
   const customerName =
     customers.find((c) => String(c._id) === String(task.customer))?.name ||
     "顧客なし";
@@ -62,7 +56,6 @@ const TaskCard = ({
 
         <div className="space-y-2 text-gray-700 text-sm">
           <div className="flex items-center">
-            {/* ★ ここを修正: assignedToName を直接表示 */}
             <span>担当者: {assignedToName || "不明"}</span>
           </div>
           <div className="flex items-center">
@@ -99,7 +92,7 @@ const TaskCard = ({
               編集
             </button>
             <button
-              onClick={() => onDelete(task._id)}
+              onClick={() => onDelete(task)}
               className="bg-red-500 text-white hover:bg-red-600 transition-colors py-2 px-3 rounded-full text-sm font-medium flex items-center gap-1"
             >
               削除

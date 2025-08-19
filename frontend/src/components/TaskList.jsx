@@ -15,9 +15,7 @@ const TaskList = ({
   onViewDetails,
 }) => {
   // 担当者名を取得するヘルパー関数
-  // タスクのassignedTo (uid) とユーザーリストを比較して名前を見つける
   const getUserName = (userId) => {
-    // ユーザーリストから該当するユーザーをuidで検索
     const user = users.find((u) => u.uid === userId);
     return user ? user.displayName : "不明な担当者";
   };
@@ -29,16 +27,15 @@ const TaskList = ({
           <TaskCard
             key={task._id}
             task={task}
-            // ★ ここを修正: 担当者名を直接渡す
             assignedToName={getUserName(task.assignedTo)}
-            onEdit={onEdit}
-            onDelete={onDelete}
+            onEdit={() => onEdit(task)}
+            onDelete={() => onDelete(task)}
             users={users}
             customers={customers}
             sales={sales}
             currentUserUid={currentUserUid}
             onTaskAction={onTaskAction}
-            onViewDetails={onViewDetails}
+            onViewDetails={() => onViewDetails(task)}
           />
         ))
       ) : (

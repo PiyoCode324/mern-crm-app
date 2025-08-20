@@ -1,8 +1,12 @@
-// src/components/ActivityTimeline.jsx (デバッグ版)
+// src/components/ActivityTimeline.jsx
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getTaskActivities } from "../utils/taskApi";
+import {
+  getCustomerActivities,
+  getSalesActivities,
+} from "../utils/activityApi";
 
 const ActivityTimeline = ({ type, targetId, refreshKey }) => {
   const [activities, setActivities] = useState([]);
@@ -23,6 +27,10 @@ const ActivityTimeline = ({ type, targetId, refreshKey }) => {
       let res = [];
       if (type === "task") {
         res = await getTaskActivities(targetId);
+      } else if (type === "customer") {
+        res = await getCustomerActivities(targetId);
+      } else if (type === "sales") {
+        res = await getSalesActivities(targetId);
       } else {
         console.warn("未対応の type:", type);
         res = [];

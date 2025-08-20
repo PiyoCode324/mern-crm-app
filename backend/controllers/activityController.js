@@ -86,7 +86,7 @@ const getActivitiesByUser = asyncHandler(async (req, res) => {
 const getAllActivities = asyncHandler(async (req, res) => {
   console.log(`📝 getAllActivities called by ${req.user.uid}`);
 
-  if (!req.user.isAdmin) {
+  if (req.user.role !== "admin") {
     console.error("❌ 権限なし user:", req.user.uid);
     res.status(403);
     throw new Error("権限がありません");

@@ -1,15 +1,12 @@
 // backend/models/contactModel.js
-
 const mongoose = require("mongoose");
 
 const contactSchema = new mongoose.Schema(
   {
-    // customerIdは必須ではなくなります
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
-      // required: [true, "顧客IDは必須です"], // この行を削除
-      default: null, // 初期値としてnullを設定
+      default: null,
     },
     contactDate: {
       type: Date,
@@ -30,21 +27,16 @@ const contactSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    // assignedUserIdも初期は未設定のため、必須ではなくします
     assignedUserId: {
       type: String, // Firebase UIDを保存
-      // required: [true, "担当者IDは必須です"], // この行を削除
-      default: null, // 初期値としてnullを設定
+      default: null, // 社員が登録した場合のみUIDを入れる
     },
-    // 新規問い合わせを管理するために、名前とメールアドレスも追加します
     customerName: {
-      // 修正: 会社名を追加
       type: String,
       trim: true,
     },
     contactName: {
       type: String,
-      // 修正: 必須ではなくなります
       required: [true, "氏名は必須です"],
       trim: true,
     },

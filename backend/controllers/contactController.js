@@ -81,11 +81,9 @@ exports.updateContact = async (req, res) => {
     }
 
     const isAdmin = req.user && req.user.role === "admin";
-    if (
-      !isAdmin &&
-      contact.assignedUserId &&
-      contact.assignedUserId !== req.user.uid
-    ) {
+
+    // 一般社員は自分担当のものだけ編集可能
+    if (!isAdmin && contact.assignedUserId !== req.user.uid) {
       return res.status(403).json({ error: "権限がありません" });
     }
 
@@ -98,6 +96,7 @@ exports.updateContact = async (req, res) => {
       contactPhone,
       responseStatus,
       memo,
+      assignedUserId, // ← 追加
     } = req.body;
 
     if (!contactName || !content) {
@@ -112,6 +111,11 @@ exports.updateContact = async (req, res) => {
     contact.contactPhone = contactPhone || "";
     contact.responseStatus = responseStatus || contact.responseStatus;
     contact.memo = memo || contact.memo;
+
+    // 🚨 担当者変更は Admin のみ許可
+    if (isAdmin && assignedUserId) {
+      contact.assignedUserId = assignedUserId;
+    }
 
     const updated = await contact.save();
     res.json(updated);

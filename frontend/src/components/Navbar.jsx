@@ -66,7 +66,7 @@ const Navbar = () => {
               顧客
             </Link>
             <Link to="/contacts" className="mr-4 hover:text-gray-300">
-              担当者
+              問い合わせ
             </Link>
             <Link to="/tasks" className="mr-4 hover:text-gray-300">
               タスク

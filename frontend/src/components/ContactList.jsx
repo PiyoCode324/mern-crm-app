@@ -2,12 +2,22 @@
 
 import { useState, useEffect } from "react";
 import { authorizedRequest } from "../services/authService";
-import { Link } from "react-router-dom";
 
-const ContactList = ({ onEdit, refreshTrigger }) => {
+const ContactList = ({ onEdit, refreshTrigger, users }) => {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // UID → displayName 変換関数
+  const getUserName = (uid) => {
+    console.log("--- 担当者名変換のデバッグ ---");
+    console.log("検索中のUID:", uid);
+    console.log("渡された全ユーザーリスト:", users);
+    const user = users.find((u) => u.uid === uid);
+    console.log("見つかったユーザー:", user);
+    console.log("--- デバッグ終了 ---");
+    return user ? user.displayName : "担当者不明";
+  };
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -15,16 +25,12 @@ const ContactList = ({ onEdit, refreshTrigger }) => {
       try {
         setLoading(true);
         const response = await authorizedRequest("GET", "/contacts");
-        console.log(
-          "✅ ContactList: APIから以下のデータを受信しました:",
-          response
-        );
-        // 修正: レスポンスが既にデータ配列であることを想定し、安全にセット
+        console.log("✅ ContactList: APIから受信:", response);
         const data = Array.isArray(response) ? response : [];
         setContacts(data);
         setError(null);
       } catch (err) {
-        console.error("❌ ContactList: 問い合わせの取得に失敗しました:", err);
+        console.error("❌ ContactList: 取得失敗:", err);
         setError("問い合わせの取得に失敗しました。");
       } finally {
         setLoading(false);
@@ -52,7 +58,7 @@ const ContactList = ({ onEdit, refreshTrigger }) => {
                 会社名
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                担当者名
+                顧客名
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 内容
@@ -77,16 +83,10 @@ const ContactList = ({ onEdit, refreshTrigger }) => {
               contacts.map((contact) => (
                 <tr key={contact._id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {contact.customerName
-                        ? contact.customerName
-                        : "会社名なし"}
-                    </div>
+                    {contact.customerName || "会社名なし"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {contact.contactName}
-                    </div>
+                    {contact.contactName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 truncate max-w-xs">
@@ -108,7 +108,7 @@ const ContactList = ({ onEdit, refreshTrigger }) => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {contact.assignedUserId
-                      ? contact.assignedUserId
+                      ? getUserName(contact.assignedUserId)
                       : "担当者不明"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -118,7 +118,6 @@ const ContactList = ({ onEdit, refreshTrigger }) => {
                     >
                       編集
                     </button>
-                    {/* <Link to={`/contacts/${contact._id}`} className="text-blue-600 hover:text-blue-900">詳細</Link> */}
                   </td>
                 </tr>
               ))

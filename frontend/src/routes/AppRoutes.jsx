@@ -2,32 +2,42 @@
 
 import React from "react";
 import { Routes, Route } from "react-router-dom";
+
+// 公開ページ
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import FreeContactPage from "../pages/FreeContactPage";
+import PasswordReset from "../components/PasswordReset";
+
+// 一般ユーザー用ページ
+import Dashboard from "../pages/Dashboard";
 import ProfilePage from "../pages/ProfilePage";
 import CustomerPage from "../pages/CustomerPage";
 import CustomerDetailPage from "../pages/CustomerDetailPage";
 import ContactsPage from "../pages/ContactsPage";
-import ProtectedRoute from "../components/ProtectedRoute";
-import FreeContactPage from "../pages/FreeContactPage";
+import ContactForm from "../components/ContactForm";
 import SalesPage from "../pages/SalesPage";
 import SalesDetailPage from "../pages/SalesDetailPage";
-import Dashboard from "../pages/Dashboard";
-import ContactForm from "../components/ContactForm";
-import AdminUserPage from "../pages/AdminUserPage";
-import PasswordReset from "../components/PasswordReset";
 import TasksPage from "../pages/TasksPage";
+import KanbanBoard from "../components/Kanban/KanbanBoard";
+
+// 管理者用ページ
+import AdminUserPage from "../pages/AdminUserPage";
 import AdminUserDetailPage from "../pages/AdminUserDetailPage";
-import KanbanBoard from "../components/Kanban/KanbanBoard"; // ✅ 新規: KanbanBoardをインポート
+
+// コンポーネント
+import ProtectedRoute from "../components/ProtectedRoute";
 
 const AppRoutes = () => {
   return (
     <Routes>
+      {/* 公開ページ */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/contact-form" element={<FreeContactPage />} />{" "}
+      <Route path="/contact-form" element={<FreeContactPage />} />
       <Route path="/password-reset" element={<PasswordReset />} />
-      {/* ログインが必要なルート */}
+
+      {/* ログイン必須ページ */}
       <Route
         path="/"
         element={
@@ -37,10 +47,10 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/tasks"
+        path="/dashboard"
         element={
           <ProtectedRoute>
-            <TasksPage />
+            <Dashboard />
           </ProtectedRoute>
         }
       />
@@ -69,6 +79,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/customers/:customerId/contacts"
+        element={
+          <ProtectedRoute>
+            <ContactsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/contacts"
         element={
           <ProtectedRoute>
@@ -81,14 +99,6 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <ContactForm />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/customers/:customerId/contacts"
-        element={
-          <ProtectedRoute>
-            <ContactsPage />
           </ProtectedRoute>
         }
       />
@@ -109,14 +119,13 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/dashboard"
+        path="/tasks"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <TasksPage />
           </ProtectedRoute>
         }
       />
-      {/* ✅ 新規: Kanbanボードのルートを追加 */}
       <Route
         path="/kanban"
         element={
@@ -125,7 +134,8 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-      {/* 管理者向けのルート */}
+
+      {/* 管理者専用ページ */}
       <Route
         path="/admin/users"
         element={
@@ -134,7 +144,6 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-      {/* ユーザー詳細ページのルート */}
       <Route
         path="/admin/users/:userId"
         element={

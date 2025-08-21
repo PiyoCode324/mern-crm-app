@@ -1,20 +1,21 @@
 // src/components/ContactForm.jsx
-
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
 import { useNavigate } from "react-router-dom";
+import { fetchAndMergeUserData } from "../utils/mergeUserData";
 
-// ✅ onCancel プロパティを追加
 const ContactForm = ({
   contact,
   onSuccess,
   onCancel,
   customerId,
   isPublic = false,
+  users = [],
 }) => {
-  const { user } = useAuth();
+  const { user: firebaseUser } = useAuth();
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [formData, setFormData] = useState({
     customerName: "",
     contactName: "",
@@ -24,10 +25,23 @@ const ContactForm = ({
     responseStatus: "未対応",
     memo: "",
     customerId: customerId || "",
+    assignedUserId: "",
   });
   const [error, setError] = useState(null);
   const [isNew, setIsNew] = useState(true);
 
+  // Firebase + MongoDBユーザー統合
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (firebaseUser) {
+        const merged = await fetchAndMergeUserData(firebaseUser);
+        setUser(merged);
+      }
+    };
+    fetchUser();
+  }, [firebaseUser]);
+
+  // contact または customerId に応じてフォーム初期化
   useEffect(() => {
     if (contact) {
       setFormData({
@@ -39,10 +53,12 @@ const ContactForm = ({
         responseStatus: contact.responseStatus || "未対応",
         memo: contact.memo || "",
         customerId: contact.customerId || "",
+        assignedUserId: contact.assignedUserId || "",
       });
       setIsNew(false);
     } else {
-      setFormData({
+      setFormData((prev) => ({
+        ...prev,
         customerName: "",
         contactName: "",
         contactEmail: "",
@@ -51,7 +67,8 @@ const ContactForm = ({
         responseStatus: "未対応",
         memo: "",
         customerId: customerId || "",
-      });
+        assignedUserId: "",
+      }));
       setIsNew(true);
     }
   }, [contact, customerId]);
@@ -68,29 +85,23 @@ const ContactForm = ({
       return;
     }
 
-    const assignedUserId = isPublic ? null : user?.uid;
+    const assignedUserId = isPublic
+      ? null
+      : formData.assignedUserId || user?.uid;
 
     try {
       if (isNew) {
-        await authorizedRequest("POST", "/contacts", {
-          ...formData,
-          assignedUserId,
-        });
-        setError(null);
-        if (onSuccess) {
-          onSuccess();
-        } else if (!isPublic) {
-          navigate("/contacts");
-        }
+        await authorizedRequest(
+          isPublic ? "POST" : "POST",
+          isPublic ? "/contacts/public" : "/contacts",
+          { ...formData, assignedUserId }
+        );
       } else {
         await authorizedRequest("PUT", `/contacts/${contact._id}`, formData);
-        setError(null);
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          navigate("/contacts");
-        }
       }
+      setError(null);
+      if (onSuccess) onSuccess();
+      else if (!isPublic) navigate("/contacts");
     } catch (err) {
       console.error("フォーム送信失敗:", err);
       setError(err.response?.data?.error || "処理に失敗しました。");
@@ -108,30 +119,32 @@ const ContactForm = ({
       </h3>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <p className="text-red-500 text-sm">{error}</p>}
-        {!isPublic && (
-          <div>
-            <label
-              className="block text-gray-700 text-sm font-bold mb-2"
-              htmlFor="customerName"
-            >
-              会社名
-            </label>
-            <input
-              type="text"
-              id="customerName"
-              name="customerName"
-              value={formData.customerName}
-              onChange={handleChange}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-            />
-          </div>
-        )}
+
+        {/* 会社名 */}
+        <div>
+          <label
+            className="block text-gray-700 text-sm font-bold mb-2"
+            htmlFor="customerName"
+          >
+            会社名
+          </label>
+          <input
+            type="text"
+            id="customerName"
+            name="customerName"
+            value={formData.customerName}
+            onChange={handleChange}
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          />
+        </div>
+
+        {/* 氏名 */}
         <div>
           <label
             className="block text-gray-700 text-sm font-bold mb-2"
             htmlFor="contactName"
           >
-            {isPublic ? "氏名" : "担当者名"}{" "}
+            {isPublic ? "氏名" : "お名前"}{" "}
             <span className="text-red-500">*</span>
           </label>
           <input
@@ -140,10 +153,12 @@ const ContactForm = ({
             name="contactName"
             value={formData.contactName}
             onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             required
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
           />
         </div>
+
+        {/* メール */}
         <div>
           <label
             className="block text-gray-700 text-sm font-bold mb-2"
@@ -160,6 +175,8 @@ const ContactForm = ({
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
           />
         </div>
+
+        {/* 電話 */}
         <div>
           <label
             className="block text-gray-700 text-sm font-bold mb-2"
@@ -176,6 +193,8 @@ const ContactForm = ({
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
           />
         </div>
+
+        {/* 内容 */}
         <div>
           <label
             className="block text-gray-700 text-sm font-bold mb-2"
@@ -189,49 +208,81 @@ const ContactForm = ({
             value={formData.content}
             onChange={handleChange}
             rows="4"
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             required
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
           ></textarea>
         </div>
-        {user && (
-          <>
-            <div>
-              <label
-                className="block text-gray-700 text-sm font-bold mb-2"
-                htmlFor="responseStatus"
-              >
-                対応状況
-              </label>
-              <select
-                id="responseStatus"
-                name="responseStatus"
-                value={formData.responseStatus}
-                onChange={handleChange}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              >
-                <option value="未対応">未対応</option>
-                <option value="対応中">対応中</option>
-                <option value="対応済み">対応済み</option>
-              </select>
-            </div>
-            <div>
-              <label
-                className="block text-gray-700 text-sm font-bold mb-2"
-                htmlFor="memo"
-              >
-                メモ
-              </label>
-              <textarea
-                id="memo"
-                name="memo"
-                value={formData.memo}
-                onChange={handleChange}
-                rows="4"
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              ></textarea>
-            </div>
-          </>
+
+        {/* 担当者割り当て (adminのみ) */}
+        {user?.role === "admin" && !isPublic && (
+          <div>
+            <label
+              className="block text-gray-700 text-sm font-bold mb-2"
+              htmlFor="assignedUserId"
+            >
+              担当者割り当て
+            </label>
+            <select
+              id="assignedUserId"
+              name="assignedUserId"
+              value={formData.assignedUserId || ""}
+              onChange={handleChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            >
+              <option value="">未割り当て</option>
+              {users.map((u) => (
+                <option key={u.uid} value={u.uid}>
+                  {u.displayName}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
+
+        {/* 対応状況 */}
+        {user && (
+          <div>
+            <label
+              className="block text-gray-700 text-sm font-bold mb-2"
+              htmlFor="responseStatus"
+            >
+              対応状況
+            </label>
+            <select
+              id="responseStatus"
+              name="responseStatus"
+              value={formData.responseStatus}
+              onChange={handleChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            >
+              <option value="未対応">未対応</option>
+              <option value="対応中">対応中</option>
+              <option value="対応済み">対応済み</option>
+            </select>
+          </div>
+        )}
+
+        {/* メモ */}
+        {user && (
+          <div>
+            <label
+              className="block text-gray-700 text-sm font-bold mb-2"
+              htmlFor="memo"
+            >
+              メモ
+            </label>
+            <textarea
+              id="memo"
+              name="memo"
+              value={formData.memo}
+              onChange={handleChange}
+              rows="4"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            ></textarea>
+          </div>
+        )}
+
+        {/* ボタン */}
         <div className="flex items-center justify-between">
           <button
             type="submit"
@@ -239,16 +290,12 @@ const ContactForm = ({
           >
             {isPublic ? "送信" : isNew ? "登録" : "更新"}
           </button>
-          {/* ✅ onCancelプロパティがある場合、または新規でない場合にボタンを表示 */}
           {(onCancel || !isNew) && (
             <button
               type="button"
               onClick={() => {
-                if (onCancel) {
-                  onCancel(); // onCancel関数があればそれを呼び出す
-                } else {
-                  navigate("/contacts"); // なければページ遷移
-                }
+                if (onCancel) onCancel();
+                else navigate("/contacts");
               }}
               className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
             >

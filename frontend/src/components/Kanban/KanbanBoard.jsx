@@ -1,25 +1,14 @@
 // src/components/Kanban/KanbanBoard.jsx
-
 import React, { useState, useEffect, useCallback, useRef, memo } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Link } from "react-router-dom";
 import { authorizedRequest } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 
-/**
- * 安定化ポイントまとめ
- * - 初回ロードは isAuthReady && user && token のときだけ（1回）
- * - 列・カードを memo 化して再レンダリングコストを削減
- * - オプティミスティック更新（成功時は再フェッチを行わない）
- * - エラー時のみ loadPipelines() で復旧（最小限の再取得）
- * - Skeleton（レイアウト維持）でちらつきを軽減
- */
+const STATUSES = ["todo", "in_progress", "done"]; // タスクのstatusに合わせる
 
-/* statuses をコンポーネント外に固定（再生成を防ぐ） */
-const STATUSES = ["見込み", "提案中", "契約済"];
-
-/* Card コンポーネント（memo） */
-const Card = memo(function Card({ customer, provided, snapshot }) {
+// Card コンポーネント
+const Card = memo(function Card({ task, provided, snapshot }) {
   return (
     <div
       ref={provided.innerRef}
@@ -30,19 +19,29 @@ const Card = memo(function Card({ customer, provided, snapshot }) {
       }`}
     >
       <Link
-        to={`/customers/${customer._id}`}
+        to={`/tasks/${task._id}`}
         className="block text-inherit no-underline"
       >
         <h3 className="text-base font-semibold text-gray-800 mb-1">
-          {customer.companyName}
+          {task.title}
         </h3>
-        <p className="text-sm text-gray-600">{customer.name}</p>
+        <p className="text-sm text-gray-600">
+          担当: {task.assignedName || "未割り当て"}
+        </p>
+        {task.companyName && (
+          <p className="text-sm text-gray-600">会社: {task.companyName}</p>
+        )}
+        {task.dueDate && (
+          <p className="text-sm text-gray-500">
+            期限: {new Date(task.dueDate).toLocaleDateString()}
+          </p>
+        )}
       </Link>
     </div>
   );
 });
 
-/* Column コンポーネント（memo） */
+// Column コンポーネント
 const Column = memo(function Column({ status, items }) {
   return (
     <Droppable droppableId={status}>
@@ -55,28 +54,24 @@ const Column = memo(function Column({ status, items }) {
           }`}
         >
           <h2 className="text-xl font-semibold text-gray-700 mb-2 pb-2 border-b-2 border-gray-200">
-            {status}
+            {status === "todo"
+              ? "未着手"
+              : status === "in_progress"
+              ? "進行中"
+              : "完了"}
           </h2>
 
           {items && items.length > 0 ? (
-            items.map((customer, index) => (
-              <Draggable
-                key={customer._id}
-                draggableId={customer._id}
-                index={index}
-              >
+            items.map((task, index) => (
+              <Draggable key={task._id} draggableId={task._id} index={index}>
                 {(provided, snapshot) => (
-                  <Card
-                    customer={customer}
-                    provided={provided}
-                    snapshot={snapshot}
-                  />
+                  <Card task={task} provided={provided} snapshot={snapshot} />
                 )}
               </Draggable>
             ))
           ) : (
             <div className="text-gray-500 italic text-center p-4">
-              顧客がありません
+              タスクがありません
             </div>
           )}
 
@@ -88,14 +83,14 @@ const Column = memo(function Column({ status, items }) {
 });
 
 const KanbanBoard = () => {
-  const { user, token, isAuthReady } = useAuth();
-
-  // pipelines: { "見込み": [...], "提案中": [...], ... }
+  const { user, token, isAuthReady, user: currentUser } = useAuth();
   const [pipelines, setPipelines] = useState(() =>
     STATUSES.reduce((acc, s) => ({ ...acc, [s]: [] }), {})
   );
   const [loading, setLoading] = useState(true);
-  const didInitialLoadRef = useRef(false); // 初回ロードを1度だけにするフラグ
+  const [usersMap, setUsersMap] = useState({}); // uid → displayName
+  const [customersMap, setCustomersMap] = useState({}); // assignedUserId → companyName
+  const didInitialLoadRef = useRef(false);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -104,67 +99,88 @@ const KanbanBoard = () => {
     };
   }, []);
 
-  const fetchCustomersByStatus = useCallback(
-    async (status, signal) => {
-      if (!user || !token) return [];
-      try {
-        // authorizedRequest が signal をサポートしていれば渡す（未対応なら無視される）
-        const response = await authorizedRequest(
-          "GET",
-          `/customers/status/${encodeURIComponent(status)}`,
-          { signal }
-        );
-        // 期待: response は配列
-        return Array.isArray(response) ? response : [];
-      } catch (error) {
-        console.error(`顧客取得エラー (${status}):`, error);
-        return [];
-      }
-    },
-    [user, token]
-  );
+  // 🔹 ユーザー情報取得
+  const loadUsers = useCallback(async () => {
+    if (!user || !token) return;
+    try {
+      const res = await authorizedRequest("GET", "/users/basic");
+      const map = {};
+      res.users.forEach((u) => {
+        map[u.uid] = u.displayName || u.email;
+      });
+      if (isMountedRef.current) setUsersMap(map);
+      console.log("ユーザー一覧:", map);
+    } catch (err) {
+      console.error("ユーザー取得エラー:", err);
+    }
+  }, [user, token]);
 
-  const loadPipelines = useCallback(
-    async (opts = { signal: null }) => {
-      if (!user || !token) return;
-      setLoading(true);
-      try {
-        const { signal } = opts;
-        const promises = STATUSES.map((status) =>
-          fetchCustomersByStatus(status, signal)
-        );
-        const results = await Promise.all(promises);
-        const newPipelines = {};
-        STATUSES.forEach((status, i) => {
-          newPipelines[status] = results[i] || [];
-        });
-        if (isMountedRef.current) {
-          setPipelines(newPipelines);
-          setLoading(false);
-        }
-      } catch (err) {
-        if (!isMountedRef.current) return;
-        console.error("loadPipelines error:", err);
+  // 🔹 顧客情報取得（管理者用全件）
+  const loadCustomers = useCallback(async () => {
+    if (!user || !token) return;
+    try {
+      const res = await authorizedRequest("GET", "/customers/all");
+      const map = {};
+      res.customers.forEach((c) => {
+        map[c.assignedUserId] = c.companyName || "";
+      });
+      if (isMountedRef.current) setCustomersMap(map);
+      console.log("顧客一覧:", map);
+    } catch (err) {
+      console.error("顧客取得エラー:", err);
+    }
+  }, [user, token]);
+
+  // 🔹 タスク取得
+  const loadTasks = useCallback(async () => {
+    if (!user || !token) return;
+    setLoading(true);
+    try {
+      const tasks = await authorizedRequest("GET", "/tasks");
+
+      // タスクに assignedName と companyName を追加
+      const tasksWithNames = tasks.map((task) => ({
+        ...task,
+        assignedName: usersMap[task.assignedTo] || "未割り当て",
+        companyName: customersMap[task.assignedTo] || "",
+      }));
+
+      const newPipelines = STATUSES.reduce(
+        (acc, s) => ({ ...acc, [s]: [] }),
+        {}
+      );
+      tasksWithNames.forEach((task) => {
+        const status = task.status || "todo";
+        newPipelines[status].push(task);
+      });
+      if (isMountedRef.current) {
+        setPipelines(newPipelines);
         setLoading(false);
       }
-    },
-    [user, token, fetchCustomersByStatus]
-  );
+      console.log("取得タスク:", tasksWithNames);
+    } catch (err) {
+      console.error("タスク取得エラー:", err);
+      if (isMountedRef.current) setLoading(false);
+    }
+  }, [user, token, usersMap, customersMap]);
 
-  /* 初回ロード: isAuthReady が true になったときに一度だけ呼ぶ */
   useEffect(() => {
     if (!isAuthReady || !user || !token) return;
     if (didInitialLoadRef.current) return;
-
     didInitialLoadRef.current = true;
+    loadUsers();
+    loadCustomers();
+  }, [isAuthReady, user, token, loadUsers, loadCustomers]);
 
-    const ac = new AbortController();
-    loadPipelines({ signal: ac.signal });
+  useEffect(() => {
+    if (
+      Object.keys(usersMap).length === 0 ||
+      Object.keys(customersMap).length === 0
+    )
+      return;
+    loadTasks();
+  }, [usersMap, customersMap, loadTasks]);
 
-    return () => ac.abort();
-  }, [isAuthReady, user, token, loadPipelines]);
-
-  /* onDragEnd: オプティミスティック更新、成功時は再フェッチしない（チラつきを抑える） */
   const onDragEnd = useCallback(
     async (result) => {
       const { destination, source, draggableId } = result;
@@ -172,56 +188,37 @@ const KanbanBoard = () => {
       if (
         destination.droppableId === source.droppableId &&
         destination.index === source.index
-      ) {
+      )
         return;
-      }
 
       const sourceStatus = source.droppableId;
       const destStatus = destination.droppableId;
 
-      // 安全にコピーして不変性を保持
       setPipelines((prev) => {
-        const fromList = Array.isArray(prev[sourceStatus])
-          ? [...prev[sourceStatus]]
-          : [];
-        const toList = Array.isArray(prev[destStatus])
-          ? [...prev[destStatus]]
-          : [];
-
+        const fromList = [...(prev[sourceStatus] || [])];
+        const toList = [...(prev[destStatus] || [])];
         const [moved] = fromList.splice(source.index, 1);
-        if (!moved) return prev; // safety
-
+        if (!moved) return prev;
         toList.splice(destination.index, 0, moved);
-
-        return {
-          ...prev,
-          [sourceStatus]: fromList,
-          [destStatus]: toList,
-        };
+        return { ...prev, [sourceStatus]: fromList, [destStatus]: toList };
       });
 
-      // 非同期でバックエンド更新（失敗時のみ復旧）
       try {
-        await authorizedRequest("PUT", `/customers/${draggableId}/status`, {
+        await authorizedRequest("PUT", `/tasks/${draggableId}`, {
           status: destStatus,
         });
-        // 成功時は何もしない（オプティミスティック更新でUIは既に反映）
-      } catch (error) {
-        console.error("ステータス更新エラー:", error);
-        // エラー時のみ再取得（最小限）
-        loadPipelines();
+      } catch (err) {
+        console.error("タスクステータス更新エラー:", err);
+        loadTasks(); // エラー時のみ再取得
       }
     },
-    [loadPipelines]
+    [loadTasks]
   );
 
-  /* Skeleton レイアウト（読み込み中でもレイアウト維持してちらつきを抑える） */
   if (loading) {
     return (
       <div className="p-8 bg-gray-100 min-h-screen font-sans">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">
-          セールスパイプライン
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">タスクボード</h1>
         <div className="flex gap-6 overflow-x-auto p-4">
           {STATUSES.map((s) => (
             <div key={s} className="w-72 min-w-72">
@@ -240,10 +237,7 @@ const KanbanBoard = () => {
 
   return (
     <div className="p-8 bg-gray-100 min-h-screen font-sans">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">
-        セールスパイプライン
-      </h1>
-
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">タスクボード</h1>
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex gap-6 overflow-x-auto p-4">
           {STATUSES.map((status) => (

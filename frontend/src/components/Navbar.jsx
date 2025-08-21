@@ -65,11 +65,11 @@ const Navbar = () => {
             <Link to="/customers" className="mr-4 hover:text-gray-300">
               顧客
             </Link>
-            <Link to="/contacts" className="mr-4 hover:text-gray-300">
-              問い合わせ
-            </Link>
             <Link to="/tasks" className="mr-4 hover:text-gray-300">
               タスク
+            </Link>
+            <Link to="/contacts" className="mr-4 hover:text-gray-300">
+              問い合わせ
             </Link>
             <Link to="/kanban" className="mr-4 hover:text-gray-300">
               Kanban

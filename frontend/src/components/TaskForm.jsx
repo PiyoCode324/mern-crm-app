@@ -18,6 +18,7 @@ const TaskForm = ({
   const [salesId, setSalesId] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [filteredSales, setFilteredSales] = useState([]);
+  const [status, setStatus] = useState("todo");
 
   // task が変わったらフィールドを更新
   useEffect(() => {
@@ -29,6 +30,7 @@ const TaskForm = ({
       setCustomer(task.customer || "");
       setSalesId(task.sales || "");
       setDueDate(task.dueDate ? task.dueDate.split("T")[0] : "");
+      setStatus(task.status || "todo");
     } else {
       setTitle("");
       setDescription("");
@@ -36,6 +38,7 @@ const TaskForm = ({
       setCustomer("");
       setSalesId("");
       setDueDate("");
+      setStatus("todo");
     }
   }, [task]);
 
@@ -74,6 +77,7 @@ const TaskForm = ({
       customer,
       sales: salesId,
       dueDate,
+      status,
     };
     console.log("📝 TaskForm handleSubmit formData:", formData);
     onSubmit(formData);
@@ -86,6 +90,7 @@ const TaskForm = ({
           {task ? "タスクを編集" : "新規タスク作成"}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* タイトル */}
           <input
             type="text"
             placeholder="タイトル"
@@ -94,12 +99,25 @@ const TaskForm = ({
             className="border p-2 w-full"
             required
           />
+          {/* 説明 */}
           <textarea
             placeholder="説明"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="border p-2 w-full"
           />
+
+          {/* ステータス選択 */}
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="border p-2 w-full"
+            required
+          >
+            <option value="todo">未着手</option>
+            <option value="in_progress">進行中</option>
+            <option value="done">完了</option>
+          </select>
 
           {/* 顧客選択 */}
           <select

@@ -10,12 +10,7 @@ const ContactList = ({ onEdit, refreshTrigger, users }) => {
 
   // UID → displayName 変換関数
   const getUserName = (uid) => {
-    console.log("--- 担当者名変換のデバッグ ---");
-    console.log("検索中のUID:", uid);
-    console.log("渡された全ユーザーリスト:", users);
     const user = users.find((u) => u.uid === uid);
-    console.log("見つかったユーザー:", user);
-    console.log("--- デバッグ終了 ---");
     return user ? user.displayName : "担当者不明";
   };
 

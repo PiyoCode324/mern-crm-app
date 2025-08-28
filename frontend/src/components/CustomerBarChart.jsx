@@ -21,12 +21,13 @@ ChartJS.register(
 );
 
 const CustomerBarChart = ({ data }) => {
+  console.log("📊 CustomerBarChart data:", data);
   const chartData = {
-    labels: data.map((item) => item.customerName),
+    labels: data.map((item) => item.name),
     datasets: [
       {
         label: "売上総額 (円)",
-        data: data.map((item) => item.totalAmount),
+        data: data.map((item) => item.sales),
         backgroundColor: "rgba(75, 192, 192, 0.6)",
         borderColor: "rgba(75, 192, 192, 1)",
         borderWidth: 1,

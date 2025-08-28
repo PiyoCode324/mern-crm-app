@@ -132,7 +132,7 @@ const AdminUserPage = () => {
           検索
         </button>
       </div>
-      <div className="bg-white shadow-md rounded-lg overflow-hidden mb-8">
+      <div className="bg-white shadow-md rounded-lg overflow-x-auto mb-8">
         <table className="min-w-full leading-normal">
           <thead>
             <tr className="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">

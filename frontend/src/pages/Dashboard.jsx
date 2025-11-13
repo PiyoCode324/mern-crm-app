@@ -1,33 +1,44 @@
 // src/pages/Dashboard.jsx
 
 import React, { useEffect, useState } from "react";
+// 認証情報を取得するカスタムフック
 import { useAuth } from "../context/AuthContext";
+// 認証付きリクエストを送信するユーティリティ関数
 import { authorizedRequest } from "../services/authService";
+// グラフ表示用コンポーネント
 import StatusPieChart from "../components/StatusPieChart";
 import CustomerBarChart from "../components/CustomerBarChart";
 
 const Dashboard = () => {
+  // 認証情報の取得
   const { user, isAuthReady } = useAuth();
-  const [summary, setSummary] = useState(null);
-  const [statusSummary, setStatusSummary] = useState([]);
-  const [customerSales, setCustomerSales] = useState([]);
-  const [upcomingDeals, setUpcomingDeals] = useState([]); // ✅ 新しいステートを追加
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
+  // ダッシュボードに必要な各種ステート
+  const [summary, setSummary] = useState(null); // 総売上・総案件数・平均案件金額など
+  const [statusSummary, setStatusSummary] = useState([]); // 案件ステータス別の件数と金額
+  const [customerSales, setCustomerSales] = useState([]); // 顧客別売上
+  const [upcomingDeals, setUpcomingDeals] = useState([]); // 期限が近い案件（7日以内）
+  const [loading, setLoading] = useState(true); // データ取得中のローディング状態
+  const [error, setError] = useState(null); // エラー発生時のメッセージ
+
+  // ページ初回レンダリング時にサマリーデータを取得
   useEffect(() => {
     const fetchSummary = async () => {
+      // 認証情報が未取得の場合は処理中断
       if (!user || !isAuthReady) {
         setLoading(false);
         return;
       }
 
       try {
+        // 認証付きリクエストでサマリーデータ取得
         const data = await authorizedRequest("GET", "/sales/summary");
+
+        // ステートに取得データをセット
         setSummary(data);
-        setStatusSummary(data.statusSummary);
-        setCustomerSales(data.customerSales);
-        setUpcomingDeals(data.upcomingDeals); // ✅ 取得したデータをステートにセット
+        setStatusSummary(data.statusSummary); // 案件ステータス集計
+        setCustomerSales(data.customerSales); // 顧客別売上
+        setUpcomingDeals(data.upcomingDeals); // 期限が近い案件
         setError(null);
       } catch (err) {
         console.error("サマリーデータの取得に失敗しました:", err);
@@ -39,19 +50,27 @@ const Dashboard = () => {
     fetchSummary();
   }, [user, isAuthReady]);
 
+  // ローディング中
   if (loading) {
     return <div className="text-center mt-8">読み込み中...</div>;
   }
+
+  // エラー発生時
   if (error) {
     return <div className="text-center mt-8 text-red-500">{error}</div>;
   }
+
+  // データが空の場合
   if (!summary) {
     return <div className="text-center mt-8">サマリーデータがありません。</div>;
   }
 
   return (
     <div className="p-8">
+      {/* ページタイトル */}
       <h1 className="text-3xl font-bold mb-8">ダッシュボード</h1>
+
+      {/* 総売上・総案件数・平均案件金額のサマリー */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-700 mb-2">総売上</h2>
@@ -75,6 +94,7 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* グラフ表示部分 */}
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 案件ステータス円グラフ */}
         <div className="bg-white p-6 rounded-lg shadow-md flex justify-center items-center">
@@ -103,7 +123,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* ✅ 期限が近い案件の表示部分を追加 */}
+      {/* 期限が近い案件の表示 */}
       <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
           <span
@@ -129,7 +149,7 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* 案件ステータスごとの内訳表示部分 */}
+      {/* 案件ステータスごとの内訳 */}
       <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-xl font-semibold text-gray-700 mb-4">
           案件ステータスごとの内訳

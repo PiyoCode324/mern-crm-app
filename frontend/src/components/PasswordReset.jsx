@@ -1,52 +1,68 @@
 // src/components/PasswordReset.jsx
+// -----------------------------------------
+// パスワードリセット画面コンポーネント
+// ・登録済みメールアドレスにパスワードリセットメールを送信
+// ・入力バリデーション（メール形式）あり
+// ・送信成功/失敗時にメッセージ表示
+// -----------------------------------------
+
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
 const PasswordReset = () => {
-  const { passwordReset } = useAuth();
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
-  const [isError, setIsError] = useState(false);
-  const [emailError, setEmailError] = useState("");
+  const { passwordReset } = useAuth(); // AuthContextからパスワードリセット関数を取得
+  const [email, setEmail] = useState(""); // 入力メールアドレス
+  const [message, setMessage] = useState(""); // 成功・失敗メッセージ
+  const [isError, setIsError] = useState(false); // エラー判定
+  const [emailError, setEmailError] = useState(""); // メール入力エラー
 
-  // メールアドレスの形式をチェックする正規表現
+  // メールアドレス形式チェック用正規表現
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+  /**
+   * メール入力変更時の処理
+   * ・入力ごとにバリデーション実施
+   */
   const handleEmailChange = (e) => {
     const newEmail = e.target.value;
     setEmail(newEmail);
 
-    // ✅ 入力ごとにバリデーションを実行
     if (newEmail === "") {
-      setEmailError("");
+      setEmailError(""); // 空欄の場合はエラー表示なし
     } else if (!emailRegex.test(newEmail)) {
-      setEmailError("無効なメールアドレス形式です。");
+      setEmailError("無効なメールアドレス形式です。"); // メール形式不正
     } else {
-      setEmailError("");
+      setEmailError(""); // 有効なメール形式
     }
   };
 
+  /**
+   * フォーム送信時の処理
+   * ・メールアドレス形式チェック
+   * ・パスワードリセットAPI呼び出し
+   * ・結果に応じてメッセージ表示
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
     setIsError(false);
     setEmailError("");
 
-    // ✅ 送信前に最終的なバリデーション
+    // 最終バリデーション
     if (!emailRegex.test(email)) {
       setEmailError("有効なメールアドレスを入力してください。");
       return;
     }
 
     try {
-      const result = await passwordReset(email);
+      const result = await passwordReset(email); // パスワードリセット送信
       if (result.success) {
         setMessage(
           "✅ パスワードリセットメールを送信しました。メールをご確認ください。"
         );
       } else {
         setIsError(true);
-        // Firebaseからのエラーメッセージを日本語に変換して表示
+        // Firebaseからのエラーコードを日本語化して表示
         if (result.error.includes("auth/user-not-found")) {
           setMessage("❌ このメールアドレスのユーザーは存在しません。");
         } else {
@@ -59,7 +75,7 @@ const PasswordReset = () => {
     }
   };
 
-  // ✅ 有効なメールアドレスが入力されるまでボタンを無効にする
+  // メールアドレスが有効でない場合は送信ボタンを無効化
   const isButtonDisabled = !emailRegex.test(email);
 
   return (
@@ -73,6 +89,8 @@ const PasswordReset = () => {
           <br />
           パスワードリセット用のメールを送信します。
         </p>
+
+        {/* フォーム */}
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label
@@ -94,10 +112,13 @@ const PasswordReset = () => {
               required
               aria-label="メールアドレス"
             />
+            {/* メール入力エラー表示 */}
             {emailError && (
               <p className="text-red-500 text-sm mt-2">{emailError}</p>
             )}
           </div>
+
+          {/* 送信ボタン */}
           <button
             type="submit"
             className={`w-full font-bold py-3 px-4 rounded-lg transition duration-200 ${
@@ -110,6 +131,8 @@ const PasswordReset = () => {
             パスワードをリセットする
           </button>
         </form>
+
+        {/* 成功・失敗メッセージ表示 */}
         {message && (
           <div
             className={`mt-4 p-4 rounded-lg text-center ${
@@ -121,6 +144,8 @@ const PasswordReset = () => {
             {message}
           </div>
         )}
+
+        {/* ログインページへのリンク */}
         <div className="mt-6 text-center">
           <a href="/login" className="text-indigo-600 hover:underline">
             ログインページに戻る

@@ -2,55 +2,63 @@
 
 const mongoose = require("mongoose");
 
-// タスクのスキーマを定義
+// Taskモデル（タスク）のスキーマ定義
 const taskSchema = new mongoose.Schema(
   {
-    // タスクの件名
+    // 🔹 タスクの件名
     title: {
       type: String,
       required: true,
       trim: true,
     },
-    // タスクの説明
+    // 🔹 タスクの詳細説明（任意）
     description: {
       type: String,
       trim: true,
     },
-    // タスクの状態（例: 'todo', 'in_progress', 'done'）
+    // 🔹 タスクの状態（ステータス）
     status: {
       type: String,
-      enum: ["todo", "in_progress", "done"],
+      enum: ["todo", "in_progress", "done"], // todo: 未着手, in_progress: 進行中, done: 完了
       default: "todo",
+      index: true, // ステータスで検索することがあるためインデックス
     },
-    // タスクの担当者（Firebase UIDを格納）
+    // 🔹 タスクの担当者（Firebase UID）
     assignedTo: {
       type: String,
       required: true,
+      index: true, // 担当者で検索することが多いためインデックス
     },
-    // タスクを作成したユーザー（Firebase UIDを格納）
+    // 🔹 タスク作成者（Firebase UID）
     createdBy: {
       type: String,
       required: true,
+      index: true, // 作成者で検索する場合があるためインデックス
     },
-    // タスクに関連付けられた顧客（顧客IDを格納）
+    // 🔹 タスクに関連付けられた顧客（CustomerモデルのObjectId）
     customer: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Customer", // 'Customer'モデルを参照
-      required: true, // ✅ 修正: 顧客は必須とする
+      ref: "Customer",
+      required: true, // 顧客は必須
+      index: true, // 顧客ごとにタスクを検索することが多いためインデックス
     },
-    // ✅ 追加: タスクに関連付けられた案件ID
+    // 🔹 タスクに関連付けられた案件（SalesモデルのObjectId、任意）
     sales: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Sales", // 'Sales'モデルを参照
-      required: false, // 案件に紐づかないタスクもあるため必須ではない
+      ref: "Sales",
+      required: false,
+      index: true, // 案件ごとにタスクを検索する場合があるためインデックス
     },
-    // タスクの期日
+    // 🔹 タスクの期日（任意）
     dueDate: {
       type: Date,
     },
   },
-  // 作成日時と更新日時を自動で追加
-  { timestamps: true }
+  {
+    // 🔹 timestamps: 作成日時(createdAt)と更新日時(updatedAt)を自動追加
+    timestamps: true,
+  }
 );
 
+// 🔹 Taskモデルをエクスポート
 module.exports = mongoose.model("Task", taskSchema);

@@ -1,24 +1,33 @@
 // src/components/SalesForm.jsx
+// -----------------------------------------
+// 案件（Sales）登録・編集フォームコンポーネント
+// ・編集対象(editingSale)があれば編集フォームとして機能
+// ・新規登録の場合は空フォームで初期化
+// ・顧客リストを取得してセレクトボックスに表示
+// ・成功・エラーメッセージをフォーム上部に表示
+// -----------------------------------------
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
 
 const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
-  const { user, token } = useAuth();
-  const [customers, setCustomers] = useState([]);
+  const { user, token } = useAuth(); // ユーザー情報と認証トークンを取得
+  const [customers, setCustomers] = useState([]); // 顧客リスト
   const [form, setForm] = useState({
-    dealName: "",
-    customerId: "",
-    amount: "",
-    status: "見込み",
-    notes: "",
-    dueDate: "",
+    dealName: "", // 案件名
+    customerId: "", // 顧客ID
+    amount: "", // 金額
+    status: "見込み", // 案件ステータス
+    notes: "", // メモ
+    dueDate: "", // 期限日
   });
-  const [message, setMessage] = useState(""); // 新規追加：成功・エラー表示用
-  const [messageType, setMessageType] = useState("success"); // success or error
+  const [message, setMessage] = useState(""); // 成功・エラーメッセージ
+  const [messageType, setMessageType] = useState("success"); // メッセージタイプ: success or error
 
-  // 顧客リストを取得
+  /**
+   * 顧客リストをAPIから取得
+   */
   const fetchCustomers = useCallback(async () => {
     if (!user || !token) return;
     try {
@@ -29,10 +38,15 @@ const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
     }
   }, [user, token]);
 
+  // コンポーネントマウント時に顧客リストを取得
   useEffect(() => {
     fetchCustomers();
   }, [fetchCustomers]);
 
+  /**
+   * 編集対象がある場合、フォームに既存データをセット
+   * 編集対象がない場合は空フォームにリセット
+   */
   useEffect(() => {
     if (editingSale) {
       setForm({
@@ -57,11 +71,21 @@ const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
     }
   }, [editingSale]);
 
+  /**
+   * フォーム入力変更時のハンドラ
+   * name属性をキーにしてformの状態を更新
+   */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  /**
+   * フォーム送信ハンドラ
+   * ・新規登録 or 編集更新に応じてAPIを呼び分け
+   * ・成功時に親コンポーネントに通知(onSuccess)
+   * ・成功/失敗メッセージを表示して3秒後に消去
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!user || !token) {
@@ -76,6 +100,7 @@ const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
         setMessage("案件を更新しました！");
       } else {
         await authorizedRequest("POST", "/sales", form);
+        // 登録成功後にフォームをリセット
         setForm({
           dealName: "",
           customerId: "",
@@ -88,8 +113,7 @@ const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
         setMessage("案件を登録しました！");
       }
 
-      // 成功したら親コンポーネントに通知
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(); // 親コンポーネントに成功通知
 
       // 3秒後にメッセージを消す
       setTimeout(() => setMessage(""), 3000);
@@ -122,6 +146,7 @@ const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
         onSubmit={handleSubmit}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end"
       >
+        {/* 案件名 */}
         <input
           type="text"
           name="dealName"
@@ -131,6 +156,8 @@ const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
           required
           className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
+
+        {/* 顧客選択 */}
         <select
           name="customerId"
           value={form.customerId}
@@ -145,6 +172,8 @@ const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
             </option>
           ))}
         </select>
+
+        {/* 案件金額 */}
         <input
           type="number"
           name="amount"
@@ -154,6 +183,8 @@ const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
           required
           className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
+
+        {/* ステータス選択 */}
         <select
           name="status"
           value={form.status}
@@ -167,6 +198,8 @@ const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
           <option value="契約済">契約済</option>
           <option value="失注">失注</option>
         </select>
+
+        {/* 期限日 */}
         <input
           type="date"
           name="dueDate"
@@ -174,6 +207,8 @@ const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
           onChange={handleChange}
           className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
+
+        {/* メモ */}
         <textarea
           name="notes"
           placeholder="メモ"
@@ -181,12 +216,16 @@ const SalesForm = ({ editingSale, onSuccess, onCancelEdit }) => {
           onChange={handleChange}
           className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent col-span-full"
         />
+
+        {/* 登録/更新ボタン */}
         <button
           type="submit"
           className="p-3 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors duration-200 col-span-full sm:col-span-1"
         >
           {editingSale ? "更新する" : "登録する"}
         </button>
+
+        {/* 編集キャンセルボタン */}
         {editingSale && (
           <button
             type="button"

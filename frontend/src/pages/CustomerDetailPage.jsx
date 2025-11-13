@@ -1,4 +1,5 @@
 // src/pages/CustomerDetailPage.jsx
+
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -9,33 +10,41 @@ import ContactList from "../components/ContactList";
 import ActivityTimeline from "../components/ActivityTimeline";
 
 const CustomerDetailPage = () => {
-  const { customerId } = useParams();
-  const navigate = useNavigate();
-  const { user, token } = useAuth();
+  const { customerId } = useParams(); // URLパラメータから顧客IDを取得
+  const navigate = useNavigate(); // ページ遷移用のフック
+  const { user, token } = useAuth(); // 認証情報（ユーザー情報・トークン）を取得
+
+  // 顧客データ、関連案件、関連タスクのステート
   const [customer, setCustomer] = useState(null);
   const [sales, setSales] = useState([]);
   const [tasks, setTasks] = useState([]);
+
+  // モーダル表示用ステートと設定
   const [showModal, setShowModal] = useState(false);
   const [modalConfig, setModalConfig] = useState({});
+
+  // 編集中の顧客情報
   const [editingCustomer, setEditingCustomer] = useState(null);
 
-  // 更新トリガー
+  // データ再取得用のトリガー
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // 顧客情報を取得する関数
   const fetchCustomer = useCallback(async () => {
     if (!user || !token || !customerId) return;
     try {
       const res = await authorizedRequest("GET", `/customers/${customerId}`);
-      setCustomer(res);
-      setEditingCustomer(res);
+      setCustomer(res); // 顧客情報をステートにセット
+      setEditingCustomer(res); // 編集用フォームに初期値としてセット
     } catch (err) {
       console.error("顧客情報の取得に失敗しました:", err);
+      // 取得失敗時はモーダルでエラーメッセージ表示
       setModalConfig({
         title: "エラー",
         message: "顧客情報の取得に失敗しました。",
         onConfirm: () => {
           setShowModal(false);
-          navigate("/customers");
+          navigate("/customers"); // 顧客リストページへ遷移
         },
         isConfirmOnly: true,
       });
@@ -43,6 +52,7 @@ const CustomerDetailPage = () => {
     }
   }, [user, token, customerId, navigate]);
 
+  // 顧客に紐づく案件リストを取得
   const fetchSalesByCustomer = useCallback(async () => {
     if (!user || !token || !customerId) return;
     try {
@@ -53,10 +63,11 @@ const CustomerDetailPage = () => {
       setSales(res);
     } catch (err) {
       console.error("案件リストの取得に失敗しました:", err);
-      setSales([]);
+      setSales([]); // 取得失敗時は空配列
     }
   }, [user, token, customerId]);
 
+  // 顧客に紐づくタスクリストを取得
   const fetchTasksByCustomer = useCallback(async () => {
     if (!user || !token || !customerId) return;
     try {
@@ -67,16 +78,17 @@ const CustomerDetailPage = () => {
       setTasks(res);
     } catch (err) {
       console.error("タスクリストの取得に失敗しました:", err);
-      setTasks([]);
+      setTasks([]); // 取得失敗時は空配列
     }
   }, [user, token, customerId]);
 
-  // データ更新トリガー
+  // 全データ再取得用トリガー関数
   const refreshAllData = useCallback(() => {
     console.log("全データの再取得をトリガーしました...");
     setRefreshTrigger((prev) => prev + 1);
   }, []);
 
+  // 初回レンダリングおよび refreshTrigger 更新時にデータ取得
   useEffect(() => {
     fetchCustomer();
     fetchSalesByCustomer();
@@ -88,11 +100,13 @@ const CustomerDetailPage = () => {
     refreshTrigger,
   ]);
 
+  // 顧客編集成功時の処理
   const handleEditSuccess = () => {
-    refreshAllData();
-    setEditingCustomer(null);
+    refreshAllData(); // 全データ再取得
+    setEditingCustomer(null); // 編集フォームを閉じる
   };
 
+  // 顧客削除処理
   const handleDelete = async () => {
     setModalConfig({
       title: "顧客削除確認",
@@ -101,7 +115,7 @@ const CustomerDetailPage = () => {
         try {
           await authorizedRequest("DELETE", `/customers/${customerId}`);
           setShowModal(false);
-          navigate("/customers");
+          navigate("/customers"); // 削除後、顧客リストへ遷移
         } catch (err) {
           console.error("削除エラー:", err);
           setModalConfig({
@@ -119,10 +133,12 @@ const CustomerDetailPage = () => {
     setShowModal(true);
   };
 
+  // 顧客データ取得前は読み込み表示
   if (!customer) return <div className="text-center mt-8">読み込み中...</div>;
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen font-sans">
+      {/* モーダル表示 */}
       {showModal && <Modal {...modalConfig} />}
 
       <div className="flex justify-between items-center mb-6">
@@ -131,7 +147,7 @@ const CustomerDetailPage = () => {
         </h1>
       </div>
 
-      {/* 顧客情報 */}
+      {/* 顧客情報表示 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white p-6 rounded-lg shadow-md h-fit">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">顧客情報</h2>
@@ -156,10 +172,12 @@ const CustomerDetailPage = () => {
             <strong className="font-medium">メモ:</strong>{" "}
             {customer.contactMemo}
           </p>
+
+          {/* 編集・削除ボタン */}
           <div className="flex space-x-2">
             <button
               onClick={() => setEditingCustomer(customer)}
-              disabled={editingCustomer ? true : false} // 下で編集中ならグレーアウト
+              disabled={editingCustomer ? true : false} // 編集中なら無効化
               className={`px-4 py-2 rounded ${
                 editingCustomer
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
@@ -177,6 +195,7 @@ const CustomerDetailPage = () => {
           </div>
         </div>
 
+        {/* 編集フォーム */}
         {editingCustomer && (
           <div className="bg-white p-6 rounded-lg shadow-md h-fit">
             <CustomerForm
@@ -188,9 +207,9 @@ const CustomerDetailPage = () => {
         )}
       </div>
 
-      {/* 案件 & タスク */}
+      {/* 案件 & タスク表示 */}
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* 案件 */}
+        {/* 案件一覧 */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">
             関連案件一覧
@@ -247,7 +266,7 @@ const CustomerDetailPage = () => {
           )}
         </div>
 
-        {/* タスク */}
+        {/* タスク一覧 */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-semibold text-gray-700 mb-4">
             関連タスク一覧
@@ -308,6 +327,7 @@ const CustomerDetailPage = () => {
         />
       </div>
 
+      {/* 顧客リストへのリンク */}
       <div className="mt-8">
         <Link to="/customers" className="text-blue-600 hover:underline">
           &larr; 顧客リストに戻る

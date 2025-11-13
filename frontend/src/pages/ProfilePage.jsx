@@ -12,34 +12,36 @@ import { useAuth } from "../context/AuthContext";
 import { authorizedRequest } from "../services/authService";
 
 const ProfilePage = () => {
-  const { user: firebaseUser, token, setToken, logout } = useAuth();
-  const [profile, setProfile] = useState(null);
-  const [displayName, setDisplayName] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [updateError, setUpdateError] = useState("");
-  const [updateSuccess, setUpdateSuccess] = useState("");
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deletePassword, setDeletePassword] = useState("");
-  const [deleteError, setDeleteError] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
-  const navigate = useNavigate();
-  const auth = getAuth();
+  const { user: firebaseUser, token, setToken, logout } = useAuth(); // AuthContext からユーザー情報・トークン・ログアウト関数を取得
+  const [profile, setProfile] = useState(null); // サーバーから取得したユーザー情報
+  const [displayName, setDisplayName] = useState(""); // 編集用表示名
+  const [loading, setLoading] = useState(true); // 読み込み中フラグ
+  const [isUpdating, setIsUpdating] = useState(false); // プロフィール更新中フラグ
+  const [updateError, setUpdateError] = useState(""); // 更新時のエラーメッセージ
+  const [updateSuccess, setUpdateSuccess] = useState(""); // 更新成功メッセージ
+  const [showDeleteModal, setShowDeleteModal] = useState(false); // アカウント削除モーダル表示フラグ
+  const [deletePassword, setDeletePassword] = useState(""); // アカウント削除用パスワード
+  const [deleteError, setDeleteError] = useState(""); // 削除時のエラーメッセージ
+  const [isDeleting, setIsDeleting] = useState(false); // 削除中フラグ
+  const navigate = useNavigate(); // ページ遷移用
+  const auth = getAuth(); // Firebase Auth インスタンス
 
+  // 初回レンダー時にサーバーからユーザー情報を取得
   useEffect(() => {
     const fetchUser = async () => {
       if (!token) {
         setLoading(false);
-        navigate("/login");
+        navigate("/login"); // トークンなしの場合はログインページへ
         return;
       }
       try {
         const res = await authorizedRequest("GET", "/users/me", token);
-        setProfile(res.user);
-        setDisplayName(res.user.displayName || "");
+        setProfile(res.user); // ユーザー情報をセット
+        setDisplayName(res.user.displayName || ""); // 表示名をセット（未設定の場合は空文字）
       } catch (err) {
         console.error("ユーザー取得エラー", err);
         if (err.response && err.response.status === 401) {
+          // トークンが無効ならログアウト
           localStorage.removeItem("token");
           navigate("/login");
         }
@@ -51,6 +53,7 @@ const ProfilePage = () => {
     fetchUser();
   }, [token, navigate]);
 
+  // パスワード確認の再認証
   const reauthenticate = async (password) => {
     if (!firebaseUser) throw new Error("ユーザーが見つかりません");
     const credential = EmailAuthProvider.credential(
@@ -60,6 +63,7 @@ const ProfilePage = () => {
     await reauthenticateWithCredential(firebaseUser, credential);
   };
 
+  // プロフィール更新処理
   const handleUpdate = async () => {
     setUpdateError("");
     setUpdateSuccess("");
@@ -71,16 +75,19 @@ const ProfilePage = () => {
       }
 
       if (displayName === profile.displayName || !displayName.trim()) {
+        // 変更がない場合や空文字の場合は更新しない
         setUpdateError("変更がありません。または、表示名が空です。");
         setIsUpdating(false);
         return;
       }
 
+      // Firebase 側の表示名更新
       await updateProfile(firebaseUser, { displayName });
+      // サーバー側のユーザー情報更新
       const res = await authorizedRequest("PUT", "/users/me", { displayName });
 
-      setProfile(res.user);
-      setUpdateSuccess("プロフィールを更新しました");
+      setProfile(res.user); // 更新後の情報をセット
+      setUpdateSuccess("プロフィールを更新しました"); // 成功メッセージ
     } catch (err) {
       console.error("更新エラー", err);
       setUpdateError(
@@ -91,16 +98,19 @@ const ProfilePage = () => {
     }
   };
 
+  // アカウント削除モーダルを開く
   const handleOpenDeleteModal = () => {
     setShowDeleteModal(true);
   };
 
+  // アカウント削除モーダルを閉じる
   const handleCloseDeleteModal = () => {
     setShowDeleteModal(false);
     setDeletePassword("");
     setDeleteError("");
   };
 
+  // アカウント削除確定処理
   const handleConfirmDelete = async () => {
     setDeleteError("");
     setIsDeleting(true);
@@ -116,17 +126,15 @@ const ProfilePage = () => {
         return;
       }
 
-      await reauthenticate(deletePassword);
-      await authorizedRequest("DELETE", "/users/me");
-      await firebaseUser.delete();
+      await reauthenticate(deletePassword); // 再認証
+      await authorizedRequest("DELETE", "/users/me"); // サーバー側アカウント削除
+      await firebaseUser.delete(); // Firebase側アカウント削除
 
       localStorage.removeItem("token");
-      if (setToken) {
-        setToken(null);
-      }
+      if (setToken) setToken(null);
 
       alert("アカウントを削除しました");
-      navigate("/login");
+      navigate("/login"); // ログインページへ遷移
     } catch (err) {
       console.error("削除エラー", err);
       if (err.code === "auth/wrong-password") {
@@ -145,6 +153,7 @@ const ProfilePage = () => {
     }
   };
 
+  // 読み込み中表示
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -153,6 +162,7 @@ const ProfilePage = () => {
     );
   }
 
+  // プロフィール未取得時の表示
   if (!profile) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -161,6 +171,7 @@ const ProfilePage = () => {
     );
   }
 
+  // ログアウト処理
   const handleLogout = async () => {
     await logout();
     navigate("/login");
@@ -173,6 +184,7 @@ const ProfilePage = () => {
           プロフィール
         </h2>
 
+        {/* メールアドレス・表示名の表示 */}
         <div className="mb-4">
           <p className="text-gray-600">
             <strong>メールアドレス:</strong> {profile.email}
@@ -182,6 +194,7 @@ const ProfilePage = () => {
           </p>
         </div>
 
+        {/* 表示名編集フォーム */}
         <div className="mb-6">
           <label
             htmlFor="displayName"
@@ -198,6 +211,7 @@ const ProfilePage = () => {
           />
         </div>
 
+        {/* 更新ボタン */}
         <button
           onClick={handleUpdate}
           className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors mb-4"
@@ -212,6 +226,7 @@ const ProfilePage = () => {
           <p className="text-red-600 text-center mb-4">{updateError}</p>
         )}
 
+        {/* アカウント削除・ログアウトボタン */}
         <div className="flex flex-col space-y-4">
           <button
             onClick={handleOpenDeleteModal}
@@ -228,6 +243,7 @@ const ProfilePage = () => {
         </div>
       </div>
 
+      {/* アカウント削除モーダル */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4">
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">

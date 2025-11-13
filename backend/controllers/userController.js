@@ -4,12 +4,18 @@ const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
 const admin = require("../firebaseAdmin");
 
-// 🔹 ユーザー新規登録（Firebase認証済みのユーザーをMongoDBに登録）
+/**
+ * 🔹 ユーザー新規登録（Firebase認証済みのユーザーをMongoDBに登録）
+ * @desc Firebase UID, email, displayName を受け取り、MongoDB にユーザーを登録
+ * @route POST /api/users/register
+ * @access Public
+ */
 const registerUser = asyncHandler(async (req, res) => {
   console.log("📥 [registerUser] 新規登録リクエスト受信:", req.body);
 
   const { uid, email, displayName } = req.body;
 
+  // 必須情報チェック
   if (!uid || !email) {
     return res.status(400).json({ message: "必須情報が不足しています。" });
   }
@@ -18,6 +24,7 @@ const registerUser = asyncHandler(async (req, res) => {
   console.log("📧 Email:", email);
   console.log("📝 Display Name:", displayName);
 
+  // 既存ユーザー確認
   const existingUser = await User.findOne({ uid: uid });
   if (existingUser) {
     console.log("⚠️ 既に登録済みのユーザー:", existingUser.email);
@@ -26,11 +33,12 @@ const registerUser = asyncHandler(async (req, res) => {
       .json({ message: "既に登録済み", user: existingUser });
   }
 
+  // 新規ユーザー作成
   const newUser = new User({
     uid,
     displayName,
     email,
-    role: "user",
+    role: "user", // デフォルトは一般ユーザー
   });
 
   const savedUser = await newUser.save();
@@ -39,7 +47,12 @@ const registerUser = asyncHandler(async (req, res) => {
   res.status(201).json({ message: "登録完了", user: savedUser });
 });
 
-// 🔸 ユーザー情報の取得（自身）
+/**
+ * 🔸 自身のユーザー情報取得
+ * @desc 認証ユーザーが自身の情報を取得
+ * @route GET /api/users/me
+ * @access Private
+ */
 const getMe = asyncHandler(async (req, res) => {
   const { uid } = req.user;
   const user = await User.findOne({ uid: uid });
@@ -51,10 +64,16 @@ const getMe = asyncHandler(async (req, res) => {
   res.status(200).json({ user });
 });
 
-// 🔸 ユーザー情報の更新（自身）
+/**
+ * 🔸 自身のユーザー情報更新
+ * @desc 認証ユーザーが自身の情報を更新
+ * @route PATCH /api/users/me
+ * @access Private
+ */
 const updateUser = asyncHandler(async (req, res) => {
   const { uid } = req.user;
   const updates = req.body;
+
   const updatedUser = await User.findOneAndUpdate({ uid: uid }, updates, {
     new: true,
   });
@@ -66,7 +85,12 @@ const updateUser = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "更新完了", user: updatedUser });
 });
 
-// 🔸 ユーザー削除（自身）
+/**
+ * 🔸 自身のユーザー削除
+ * @desc 認証ユーザーが自身のアカウントを削除
+ * @route DELETE /api/users/me
+ * @access Private
+ */
 const deleteUser = asyncHandler(async (req, res) => {
   const { uid } = req.user;
   const deletedUser = await User.findOneAndDelete({ uid: uid });
@@ -78,12 +102,18 @@ const deleteUser = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "ユーザー削除完了" });
 });
 
-// ✅ 複数の特定のユーザー情報を取得する関数
+/**
+ * ✅ 複数ユーザー情報取得
+ * @desc 複数のユーザーをUIDで取得
+ * @route GET /api/users?ids=uid1,uid2
+ * @access Private
+ */
 const getUsers = asyncHandler(async (req, res) => {
   const ids = req.query.ids ? req.query.ids.split(",") : [];
   if (ids.length === 0) {
     return res.json([]);
   }
+
   const users = await User.find({ uid: { $in: ids } });
 
   const formattedUsers = users.map((user) => ({
@@ -95,14 +125,16 @@ const getUsers = asyncHandler(async (req, res) => {
   res.json(formattedUsers);
 });
 
-// ✅ 修正: 管理者専用：すべてのユーザーを取得するコントローラー
-// 検索機能を追加
+/**
+ * ✅ 管理者専用：すべてのユーザーを取得（検索機能あり）
+ * @desc Firebase情報も取得して結合
+ * @route GET /api/users/all
+ * @access Admin
+ */
 const getAllUsers = asyncHandler(async (req, res) => {
-  // クエリパラメータから検索キーワードを取得
   const { search } = req.query;
   const query = {};
 
-  // 検索キーワードがあれば、メールアドレスまたは表示名で部分一致検索を行う
   if (search) {
     query.$or = [
       { email: { $regex: search, $options: "i" } },
@@ -115,7 +147,6 @@ const getAllUsers = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: "ユーザーが見つかりません。" });
   }
 
-  // Firebaseのユーザー情報も取得し、MongoDBの情報と結合
   const usersWithFirebaseInfo = await Promise.all(
     users.map(async (user) => {
       try {
@@ -127,7 +158,6 @@ const getAllUsers = asyncHandler(async (req, res) => {
           disabled: firebaseUser.disabled,
         };
       } catch (error) {
-        // Firebaseに存在しないユーザーの場合のエラーハンドリング
         console.error(`Firebaseユーザー取得エラー (UID: ${user.uid}):`, error);
         return { ...user.toObject(), disabled: true, firebaseError: true };
       }
@@ -137,7 +167,12 @@ const getAllUsers = asyncHandler(async (req, res) => {
   res.status(200).json({ users: usersWithFirebaseInfo });
 });
 
-// 🔹 認証ユーザー向け：必要最低限の情報のみ返す安全なユーザー一覧取得
+/**
+ * 🔹 認証ユーザー向け：基本情報のみ取得
+ * @desc 安全に最小限の情報を返す
+ * @route GET /api/users/basic
+ * @access Private
+ */
 const getUsersBasic = asyncHandler(async (req, res) => {
   const users = await User.find({}).select("uid displayName role");
   if (users) {
@@ -147,13 +182,17 @@ const getUsersBasic = asyncHandler(async (req, res) => {
   }
 });
 
-// ✅ 新しい関数：ユーザーの役割を更新
+/**
+ * ✅ ユーザーの役割更新
+ * @desc 指定ユーザーの role を更新
+ * @route PATCH /api/users/:id/role
+ * @access Admin
+ */
 const updateUserRole = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
 
   const user = await User.findOne({ uid: id });
-
   if (!user) {
     res.status(404);
     throw new Error("ユーザーが見つかりません。");
@@ -165,7 +204,12 @@ const updateUserRole = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "ユーザーの役割が更新されました。", user });
 });
 
-// ✅ 新規: ユーザーの有効化/無効化を切り替える関数
+/**
+ * ✅ ユーザーの有効化/無効化切替
+ * @desc Firebase UID で指定されたユーザーの disabled ステータスを更新
+ * @route PATCH /api/users/:id/disable
+ * @access Admin
+ */
 const toggleUserDisabledStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { disabled } = req.body;
@@ -193,11 +237,14 @@ const toggleUserDisabledStatus = asyncHandler(async (req, res) => {
   }
 });
 
-// ✅ 新規: 特定のユーザー情報を取得する関数
+/**
+ * ✅ 特定ユーザー情報取得
+ * @desc UID で指定されたユーザーの情報を取得（MongoDB + Firebase 結合）
+ * @route GET /api/users/:id
+ * @access Admin / Private
+ */
 const getUserById = asyncHandler(async (req, res) => {
-  const { id } = req.params; // URLからFirebase UIDを取得
-
-  // MongoDBからユーザー情報を検索
+  const { id } = req.params; // Firebase UID
   const user = await User.findOne({ uid: id }).select("-password");
 
   if (!user) {
@@ -206,10 +253,7 @@ const getUserById = asyncHandler(async (req, res) => {
   }
 
   try {
-    // Firebase Admin SDK を使ってユーザーの無効化状態を取得
     const firebaseUser = await admin.auth().getUser(id);
-
-    // MongoDBとFirebaseの情報を結合
     const userWithFirebaseInfo = {
       ...user.toObject(),
       uid: firebaseUser.uid,

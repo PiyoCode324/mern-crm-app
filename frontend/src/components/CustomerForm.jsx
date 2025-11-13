@@ -1,11 +1,13 @@
-// src/components/CustomerForm.jsx
+// src/components/Customer/CustomerForm.jsx
+// 顧客の新規登録・編集フォーム
+// authorizedRequest を使って API と通信
 
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { authorizedRequest } from "../services/authService"; // 修正後のauthorizedRequestをインポート
+import { authorizedRequest } from "../services/authService";
 
 const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
-  const { user } = useAuth(); // token は authorizedRequest に直接渡す必要がなくなったため、ここでは不要（使うなら残す）
+  const { user } = useAuth(); // ログインユーザー情報
 
   const [formData, setFormData] = useState({
     name: "",
@@ -20,6 +22,7 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 編集モード時はフォームに値をセット
   useEffect(() => {
     if (editingCustomer) {
       setFormData({
@@ -44,10 +47,7 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
@@ -57,7 +57,6 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
     setIsSubmitting(true);
 
     if (!user) {
-      // token のチェックは authorizedRequest 内のインターセプターが担当
       setError("ログインしてください");
       setIsSubmitting(false);
       return;
@@ -69,14 +68,10 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
       return;
     }
 
-    const dataToSend = {
-      ...formData,
-      assignedUserId: user.uid,
-    };
+    const dataToSend = { ...formData, assignedUserId: user.uid };
 
     try {
       if (editingCustomer) {
-        // ✅ 修正: token 引数を削除
         await authorizedRequest(
           "PUT",
           `/customers/${editingCustomer._id}`,
@@ -84,11 +79,11 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
         );
         setSuccess("顧客情報を更新しました！");
       } else {
-        // ✅ 修正: token 引数を削除
         await authorizedRequest("POST", "/customers", dataToSend);
         setSuccess("新しい顧客を登録しました！");
       }
 
+      // フォームリセット
       setFormData({
         name: "",
         companyName: "",
@@ -98,14 +93,10 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
         contactMemo: "",
       });
 
-      if (onSuccess) {
-        setTimeout(() => onSuccess(), 1500);
-      }
+      if (onSuccess) setTimeout(() => onSuccess(), 1500);
     } catch (err) {
       console.error("送信エラー:", err);
-      const serverMessage =
-        err.response?.data?.message || "送信に失敗しました。";
-      setError(serverMessage);
+      setError(err.response?.data?.message || "送信に失敗しました。");
     } finally {
       setIsSubmitting(false);
     }
@@ -113,12 +104,13 @@ const CustomerForm = ({ editingCustomer, onSuccess, onCancelEdit }) => {
 
   return (
     <form
-      onSubmit={handleSubmit}
       className="space-y-4 p-4 border rounded-lg shadow-md max-w-xl mx-auto"
+      onSubmit={handleSubmit}
     >
       <h2 className="text-xl font-bold">
         {editingCustomer ? "顧客情報の編集" : "顧客登録"}
       </h2>
+
       {error && <p className="text-red-500">{error}</p>}
       {success && <p className="text-green-500">{success}</p>}
 

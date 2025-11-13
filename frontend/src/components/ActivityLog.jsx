@@ -1,28 +1,29 @@
 // src/components/ActivityLog.jsx
 
 import React, { useState, useEffect, useCallback } from "react";
-import { authorizedRequest } from "../services/authService";
-import { useAuth } from "../context/AuthContext";
+import { authorizedRequest } from "../services/authService"; // 認証付きリクエスト関数
+import { useAuth } from "../context/AuthContext"; // ユーザー認証情報を提供するコンテキスト
 
 const ActivityLog = () => {
-  // アクティビティのステート管理
-  // ここでは全アクティビティを保持します
+  // 🔹 アクティビティ（全件）を保持するステート
   const [allActivities, setAllActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true); // ローディング状態
+  const [error, setError] = useState(null); // エラーメッセージを保持
 
-  // ページネーションのステート
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; // 1ページあたりの表示件数を設定
+  // 🔹 ページネーション用のステート
+  const [currentPage, setCurrentPage] = useState(1); // 現在のページ番号
+  const itemsPerPage = 10; // 1ページあたりの表示件数
 
-  // AuthContextからユーザー情報とトークンを取得
+  // 🔹 認証情報を取得（管理者かどうか、トークンなど）
   const { user, token, isAdmin } = useAuth();
 
   /**
-   * APIからアクティビティ履歴を非同期で取得する関数 (全件取得)
+   * 🔹 APIからアクティビティ履歴を全件取得する関数
+   * useCallbackでメモ化し、依存関係が変わった時のみ再生成される
    */
   const fetchAllActivities = useCallback(async () => {
     if (!isAdmin || !token) {
+      // 管理者以外は取得を許可しない
       console.log(
         "アクティビティログ取得スキップ：管理者権限またはトークンがありません。"
       );
@@ -35,7 +36,7 @@ const ActivityLog = () => {
       setLoading(true);
       setError(null);
 
-      // バックエンドがページネーションに対応していないことを想定し、全件取得
+      // バックエンドは全件返す想定（ページネーションはフロント側で実装）
       const res = await authorizedRequest(
         "GET",
         `/activities/all`,
@@ -43,9 +44,9 @@ const ActivityLog = () => {
         token
       );
 
-      // レスポンスが配列であることを確認
+      // 🔹 レスポンスが配列かどうか確認
       if (Array.isArray(res)) {
-        // updatedAtで降順ソート
+        // 更新日時 (updatedAt) で降順にソート
         const sortedActivities = res.sort(
           (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
         );
@@ -57,20 +58,21 @@ const ActivityLog = () => {
       }
       setLoading(false);
     } catch (err) {
+      // 🔹 エラーハンドリング
       console.error("アクティビティの取得エラー:", err);
       setError("アクティビティの取得に失敗しました。");
       setLoading(false);
     }
   }, [isAdmin, token]);
 
-  // コンポーネントがマウントされた時、および認証状態が変化した時に実行
+  // 🔹 コンポーネント初期表示時や認証情報が変化した時にアクティビティを取得
   useEffect(() => {
     if (isAdmin && token) {
       fetchAllActivities();
     }
   }, [fetchAllActivities, isAdmin, token]);
 
-  // 現在のページに表示するアクティビティを計算
+  // 🔹 現在のページに表示するデータを計算
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentActivities = allActivities.slice(
@@ -79,7 +81,7 @@ const ActivityLog = () => {
   );
   const totalPages = Math.ceil(allActivities.length / itemsPerPage);
 
-  // ページ変更ハンドラ
+  // 🔹 ページ切り替え関数
   const handlePageChange = (newPage) => {
     if (newPage > 0 && newPage <= totalPages) {
       setCurrentPage(newPage);
@@ -87,16 +89,18 @@ const ActivityLog = () => {
   };
 
   /**
-   * タイムスタンプをフォーマットするヘルパー関数
+   * 🔹 日付フォーマット関数
+   * タイムスタンプをローカル日時文字列に変換
    */
   const formatDate = (timestamp) => {
     const date = new Date(timestamp);
     if (!isNaN(date.getTime())) {
-      return date.toLocaleString();
+      return date.toLocaleString(); // ローカルの日時フォーマット
     }
-    return "日付不明";
+    return "日付不明"; // 無効な日付の場合
   };
 
+  // 🔹 ローディング中の表示
   if (loading) {
     return (
       <div className="text-center mt-8 text-gray-600">
@@ -105,6 +109,7 @@ const ActivityLog = () => {
     );
   }
 
+  // 🔹 エラー発生時の表示
   if (error) {
     return <div className="text-center mt-8 text-red-500">エラー: {error}</div>;
   }
@@ -114,6 +119,8 @@ const ActivityLog = () => {
       <h2 className="text-2xl font-bold text-gray-800 mb-6">
         アクティビティログ (全活動履歴)
       </h2>
+
+      {/* 🔹 アクティビティが存在する場合 */}
       {currentActivities.length > 0 ? (
         <>
           <div className="space-y-4">
@@ -122,16 +129,20 @@ const ActivityLog = () => {
                 key={index}
                 className="border-l-4 border-blue-500 pl-4 py-2 bg-gray-50 hover:bg-gray-100 transition-colors duration-200"
               >
+                {/* 更新日時 */}
                 <p className="text-xs text-gray-500">
                   {formatDate(activity.updatedAt)}
                 </p>
+                {/* アクティビティ内容 */}
                 <p className="text-gray-800 font-medium">
                   {activity.description}
                 </p>
+                {/* 関連ユーザー */}
                 <p className="text-sm text-gray-600">
                   <span className="font-semibold">ユーザーID:</span>{" "}
                   {activity.userId}
                 </p>
+                {/* 対象となるモデルとID */}
                 <p className="text-sm text-gray-600">
                   <span className="font-semibold">対象モデル:</span>{" "}
                   {activity.targetModel} ({activity.targetId})
@@ -139,7 +150,8 @@ const ActivityLog = () => {
               </div>
             ))}
           </div>
-          {/* ページネーションコントロール */}
+
+          {/* 🔹 ページネーションコントロール */}
           <div className="flex justify-center items-center mt-6 space-x-2">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
@@ -161,6 +173,7 @@ const ActivityLog = () => {
           </div>
         </>
       ) : (
+        // 🔹 アクティビティが存在しない場合
         <p className="text-gray-500">アクティビティ履歴はありません。</p>
       )}
     </div>

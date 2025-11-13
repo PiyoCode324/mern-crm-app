@@ -1,19 +1,21 @@
 // backend/controllers/customerController.js
 
-const Customer = require("../models/Customer");
-const Activity = require("../models/Activity");
+const Customer = require("../models/Customer"); // 顧客(Customer)モデル
+const Activity = require("../models/Activity"); // アクティビティ(Activity)モデル
 const mongoose = require("mongoose");
-const asyncHandler = require("express-async-handler");
+const asyncHandler = require("express-async-handler"); // 非同期処理のエラーハンドリングを簡潔にするためのラッパー
 
-// 💡 アクティビティを記録するためのヘルパー関数を修正
+// ==============================
+// 💡 共通: アクティビティ記録用関数
+// ==============================
 const recordActivity = async (
-  userId,
-  action,
-  targetModel,
-  targetId,
-  description,
+  userId, // 実行ユーザーID
+  action, // 操作内容 (created, updated, deleted, status_changed 等)
+  targetModel, // 対象モデル (Customer 等)
+  targetId, // 対象ドキュメントのID
+  description, // 操作の説明
   customerId = null,
-  assignedUserId // ✅ assignedUserIdを受け取るように変更
+  assignedUserId // ✅ 担当者IDを記録
 ) => {
   try {
     const activity = new Activity({
@@ -23,25 +25,26 @@ const recordActivity = async (
       targetId,
       description,
       customerId,
-      assignedUserId, // ✅ assignedUserIdをアクティビティモデルに保存
+      assignedUserId,
     });
     await activity.save();
   } catch (error) {
     console.error("アクティビティの記録に失敗しました:", error);
-    // エラーが発生しても、メインの処理は止めない
+    // ⚠️ エラーが発生しても顧客処理は継続
   }
 };
 
-// 顧客新規登録
-// 顧客を作成する際、ログイン中のユーザーに紐づける
+// ==============================
+// ➕ 顧客新規登録
+// ==============================
 exports.createCustomer = asyncHandler(async (req, res) => {
-  const assignedUserId = req.user.uid;
+  const assignedUserId = req.user.uid; // ログインユーザーを担当者に設定
   const newCustomer = await Customer.create({
     ...req.body,
     assignedUserId,
   });
 
-  // 💡 顧客作成時にアクティビティを記録
+  // 顧客作成時にアクティビティを記録
   await recordActivity(
     req.user.uid,
     "created",
@@ -51,23 +54,26 @@ exports.createCustomer = asyncHandler(async (req, res) => {
       newCustomer.companyName || newCustomer.name
     }」を登録しました。`,
     newCustomer._id,
-    assignedUserId // ✅ assignedUserIdを渡すように変更
+    assignedUserId
   );
 
   res.status(201).json(newCustomer);
 });
 
-// 全顧客情報取得（ログインユーザーの顧客のみ）
+// ==============================
+// 📄 顧客一覧取得（ログインユーザーのみ）
+// ==============================
 exports.getCustomers = asyncHandler(async (req, res) => {
   const customers = await Customer.find({
     assignedUserId: req.user.uid,
-  }).sort({
-    createdAt: -1,
-  });
+  }).sort({ createdAt: -1 });
+
   res.status(200).json(customers);
 });
 
-// 顧客IDで顧客情報を取得（ログインユーザーに紐づく特定の顧客を取得）
+// ==============================
+// 📄 顧客詳細取得（ログインユーザー専用）
+// ==============================
 exports.getCustomerById = asyncHandler(async (req, res) => {
   const customer = await Customer.findOne({
     _id: req.params.id,
@@ -80,7 +86,9 @@ exports.getCustomerById = asyncHandler(async (req, res) => {
   res.status(200).json(customer);
 });
 
-// 顧客情報を更新（ログイン中のユーザーに紐づく特定の顧客を更新）
+// ==============================
+// ✏️ 顧客情報更新（ログインユーザー専用）
+// ==============================
 exports.updateCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const userId = req.user.uid;
@@ -90,19 +98,22 @@ exports.updateCustomer = asyncHandler(async (req, res) => {
     throw new Error("無効な顧客IDです");
   }
 
+  // 更新対象の顧客を取得
   const customer = await Customer.findById(id);
   if (!customer || customer.assignedUserId !== userId) {
     res.status(404);
     throw new Error("顧客が見つからないか、権限がありません");
   }
 
-  const beforeUpdateData = customer.toObject();
+  const beforeUpdateData = customer.toObject(); // 更新前のデータを保持
 
+  // 顧客情報を更新
   const updatedCustomer = await Customer.findByIdAndUpdate(id, req.body, {
     new: true,
     runValidators: true,
   });
 
+  // 更新内容をログに記録
   const changes = [];
   for (const key in req.body) {
     if (beforeUpdateData[key] !== updatedCustomer[key] && key !== "updatedAt") {
@@ -112,6 +123,7 @@ exports.updateCustomer = asyncHandler(async (req, res) => {
     }
   }
 
+  // アクティビティ記録
   if (changes.length > 0) {
     await recordActivity(
       req.user.uid,
@@ -122,14 +134,16 @@ exports.updateCustomer = asyncHandler(async (req, res) => {
         updatedCustomer.companyName || updatedCustomer.name
       }」の情報を更新しました: ${changes.join("、")}`,
       updatedCustomer._id,
-      userId // ✅ assignedUserIdを渡すように変更
+      userId
     );
   }
 
   res.status(200).json(updatedCustomer);
 });
 
-// 顧客を削除（ログイン中のユーザーに紐づく特定の顧客を削除）
+// ==============================
+// 🗑️ 顧客削除（ログインユーザー専用）
+// ==============================
 exports.deleteCustomer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const userId = req.user.uid;
@@ -145,6 +159,7 @@ exports.deleteCustomer = asyncHandler(async (req, res) => {
     throw new Error("顧客が見つからないか、権限がありません");
   }
 
+  // アクティビティ記録
   await recordActivity(
     req.user.uid,
     "deleted",
@@ -152,32 +167,37 @@ exports.deleteCustomer = asyncHandler(async (req, res) => {
     customer._id,
     `顧客「${customer.companyName || customer.name}」を削除しました。`,
     customer._id,
-    userId // ✅ assignedUserIdを渡すように変更
+    userId
   );
 
   await Customer.findByIdAndDelete(id);
   res.status(200).json({ message: "顧客情報を削除しました" });
 });
 
-// 全顧客取得（認証ユーザー問わず全件取得、管理者用に認可を後で追加可能）
+// ==============================
+// 📄 全顧客取得（管理者用）
+// ==============================
 exports.getAllCustomers = asyncHandler(async (req, res) => {
   const customers = await Customer.find({}).sort({ createdAt: -1 });
   res.status(200).json({ customers });
 });
 
-// 💡 追加: ステータス別に顧客情報を取得（ログインユーザーの顧客のみ）
+// ==============================
+// 📄 ステータス別顧客一覧取得
+// ==============================
 exports.getCustomersByStatus = asyncHandler(async (req, res) => {
   const { status } = req.params;
   const customers = await Customer.find({
     assignedUserId: req.user.uid,
     status: status,
-  }).sort({
-    createdAt: -1,
-  });
+  }).sort({ createdAt: -1 });
+
   res.status(200).json(customers);
 });
 
-// 💡 追加: 顧客のステータスを更新
+// ==============================
+// ✏️ 顧客ステータス更新
+// ==============================
 exports.updateCustomerStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -199,6 +219,7 @@ exports.updateCustomerStatus = asyncHandler(async (req, res) => {
     throw new Error("顧客が見つからないか、権限がありません");
   }
 
+  // アクティビティ記録
   await recordActivity(
     req.user.uid,
     "status_changed",
@@ -208,7 +229,7 @@ exports.updateCustomerStatus = asyncHandler(async (req, res) => {
       updatedCustomer.companyName || updatedCustomer.name
     }」のステータスを「${updatedCustomer.status}」に更新しました。`,
     updatedCustomer._id,
-    userId // ✅ assignedUserIdを渡すように変更
+    userId
   );
 
   res.status(200).json(updatedCustomer);

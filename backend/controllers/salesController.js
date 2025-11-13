@@ -1,12 +1,14 @@
 // backend/controllers/salesController.js
 
-const asyncHandler = require("express-async-handler");
+const asyncHandler = require("express-async-handler"); // 非同期エラーハンドリング用
 const mongoose = require("mongoose");
-const Sales = require("../models/Sales");
-const Customer = require("../models/Customer");
-const Activity = require("../models/Activity");
+const Sales = require("../models/Sales"); // 案件モデル
+const Customer = require("../models/Customer"); // 顧客モデル
+const Activity = require("../models/Activity"); // アクティビティモデル
 
-// 💡 アクティビティを記録するためのヘルパー関数
+// ==============================
+// 💡 アクティビティ記録ヘルパー
+// ==============================
 const recordActivity = async (
   userId,
   action,
@@ -15,7 +17,7 @@ const recordActivity = async (
   description,
   customerId = null,
   salesId = null,
-  assignedUserId // ✅ 追加: assignedUserIdを引数として受け取る
+  assignedUserId
 ) => {
   try {
     const activity = new Activity({
@@ -26,7 +28,7 @@ const recordActivity = async (
       description,
       customerId,
       salesId,
-      assignedUserId, // ✅ 修正: assignedUserIdをモデルにセット
+      assignedUserId,
     });
     await activity.save();
   } catch (error) {
@@ -34,7 +36,9 @@ const recordActivity = async (
   }
 };
 
-// --- 新しい案件を作成 ---
+// ==============================
+// ➕ 新規案件作成
+// ==============================
 exports.createSales = asyncHandler(async (req, res) => {
   const { dealName, customerId, amount, status, dueDate, notes } = req.body;
   const assignedUserId = req.user.uid;
@@ -56,6 +60,7 @@ exports.createSales = asyncHandler(async (req, res) => {
 
   const createdSales = await sales.save();
 
+  // アクティビティ記録
   await recordActivity(
     assignedUserId,
     "created",
@@ -64,13 +69,15 @@ exports.createSales = asyncHandler(async (req, res) => {
     `新しい案件「${dealName}」を作成しました。`,
     customerId,
     createdSales._id,
-    assignedUserId // ✅ 修正: assignedUserIdを渡す
+    assignedUserId
   );
 
   res.status(201).json(createdSales);
 });
 
-// --- 案件を更新 ---
+// ==============================
+// ✏️ 案件更新
+// ==============================
 exports.updateSales = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const assignedUserId = req.user.uid;
@@ -106,6 +113,7 @@ exports.updateSales = asyncHandler(async (req, res) => {
 
   const updatedSales = await sales.save();
 
+  // 更新内容をアクティビティに記録
   const changes = [];
   if (beforeData.dealName !== updatedSales.dealName) {
     changes.push(`案件名を「${updatedSales.dealName}」に変更`);
@@ -125,14 +133,16 @@ exports.updateSales = asyncHandler(async (req, res) => {
       changes.join("、"),
       updatedSales.customerId,
       updatedSales._id,
-      assignedUserId // ✅ 修正: assignedUserIdを渡す
+      assignedUserId
     );
   }
 
   res.status(200).json(updatedSales);
 });
 
-// --- 案件を削除 ---
+// ==============================
+// 🗑️ 案件削除
+// ==============================
 exports.deleteSales = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const assignedUserId = req.user.uid;
@@ -158,7 +168,9 @@ exports.deleteSales = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "案件が削除されました" });
 });
 
-// --- 特定の案件をIDで取得 ---
+// ==============================
+// 🔍 案件IDで取得
+// ==============================
 exports.getSalesById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const assignedUserId = req.user.uid;
@@ -183,14 +195,14 @@ exports.getSalesById = asyncHandler(async (req, res) => {
   const activities = await Activity.find({
     targetModel: "Sales",
     targetId: sales._id,
-  }).sort({
-    createdAt: -1,
-  });
+  }).sort({ createdAt: -1 });
 
   res.status(200).json({ sales, customer, activities });
 });
 
-// --- ユーザーに紐づく案件を全て取得 ---
+// ==============================
+// 🔍 ユーザーに紐づく案件全取得
+// ==============================
 exports.getAllSalesByUser = asyncHandler(async (req, res) => {
   const sales = await Sales.find({ assignedUserId: req.user.uid }).sort({
     updatedAt: -1,
@@ -199,7 +211,9 @@ exports.getAllSalesByUser = asyncHandler(async (req, res) => {
   res.status(200).json(sales);
 });
 
-// --- 特定の顧客に紐づく案件を全て取得 ---
+// ==============================
+// 🔍 特定顧客に紐づく案件取得
+// ==============================
 exports.getSalesByCustomer = asyncHandler(async (req, res) => {
   const { customerId } = req.params;
   const assignedUserId = req.user.uid;
@@ -216,7 +230,9 @@ exports.getSalesByCustomer = asyncHandler(async (req, res) => {
   res.status(200).json(sales);
 });
 
-// --- ダッシュボード用のサマリーデータを取得する新しい関数
+// ==============================
+// 📊 ダッシュボード用サマリーデータ取得
+// ==============================
 exports.getSalesSummary = asyncHandler(async (req, res) => {
   const userId = req.user.uid;
 
@@ -270,7 +286,9 @@ exports.getSalesSummary = asyncHandler(async (req, res) => {
   });
 });
 
-// --- 顧客別売上データを生成するヘルパー関数
+// ==============================
+// 💡 顧客別売上データ生成ヘルパー
+// ==============================
 async function generateCustomerSales(userId) {
   const allSales = await Sales.find({ assignedUserId: userId }).populate(
     "customerId",
@@ -279,10 +297,7 @@ async function generateCustomerSales(userId) {
   const salesByCustomer = allSales.reduce((acc, sale) => {
     const customerName = sale.customerId?.companyName || "不明な顧客";
     if (!acc[customerName]) {
-      acc[customerName] = {
-        name: customerName,
-        sales: 0,
-      };
+      acc[customerName] = { name: customerName, sales: 0 };
     }
     acc[customerName].sales += sale.amount || 0;
     return acc;

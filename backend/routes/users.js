@@ -16,43 +16,43 @@ const {
   updateUserRole,
   getUsersBasic,
   toggleUserDisabledStatus,
-  getUserById, // ✅ 追加: 新しいコントローラー関数をインポート
+  getUserById, // ✅ 新規: 管理者用で特定ユーザー取得
 } = require("../controllers/userController");
 
 // 🔹 初回登録（MongoDBにユーザー登録）
-// ✅ 修正: 他のルートより前に配置し、verifyFirebaseTokenをスキップさせる
+// ※ verifyFirebaseTokenはスキップ。初回登録時はFirebaseトークンがない場合があるため
 router.post("/register", registerUser);
 
 // ----------------------------------------------------
-// ✅ 以下のすべてのルートは、Firebase認証が必要
-router.use(verifyFirebaseToken);
+// 以下のルートはすべて認証必須（Firebaseトークンを検証）
 // ----------------------------------------------------
+router.use(verifyFirebaseToken);
 
-// ✅ 新しいルート：管理者専用で、すべてのユーザーを取得
+// ✅ 管理者専用: すべてのユーザー情報を取得
 router.get("/all", isAdmin, getAllUsers);
 
-// 🔸 現在のユーザー情報取得
+// 🔸 自分自身の情報を取得
 router.get("/me", getMe);
 
-// 🔸 現在のユーザー情報更新
+// 🔸 自分自身の情報を更新
 router.put("/me", updateUser);
 
-// 🔸 現在のユーザー削除
+// 🔸 自分自身のアカウントを削除
 router.delete("/me", deleteUser);
 
-// ✅ 元のルート：IDクエリでユーザーを取得
+// ✅ IDで特定ユーザーを取得
 router.get("/", getUsers);
 
-// すべての認証ユーザーが利用可能なユーザー一覧取得（閲覧に必要な情報のみ返す）
+// 🔹 基本情報のみ取得（すべての認証ユーザーが閲覧可能）
 router.get("/basic", getUsersBasic);
 
-// ✅ 新しいルート：管理者専用で、ユーザーの役割を更新
+// ✅ 管理者専用: ユーザーの役割を変更
 router.put("/:id/role", isAdmin, updateUserRole);
 
-// ✅ 新規: 管理者専用で、ユーザーの有効化/無効化を切り替えるエンドポイント
+// ✅ 管理者専用: ユーザーの有効/無効を切り替え
 router.put("/:id/disabled", isAdmin, toggleUserDisabledStatus);
 
-// ✅ 新規: 管理者専用で、特定のユーザー情報を取得するエンドポイント
+// ✅ 管理者専用: 特定のユーザー情報を取得
 router.get("/:id", isAdmin, getUserById);
 
 module.exports = router;

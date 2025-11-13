@@ -3,50 +3,56 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
+// Salesモデル（案件）のスキーマ定義
 const salesSchema = new Schema(
   {
+    // 🔹 案件名
     dealName: {
-      // 案件名
       type: String,
       required: true,
+      trim: true,
     },
+    // 🔹 顧客との紐づけ（CustomerモデルのObjectId）
     customerId: {
-      // ✅ 顧客との紐づけ
       type: Schema.Types.ObjectId,
       ref: "Customer",
       required: true,
+      index: true, // 顧客ごとに案件を検索する場合が多いためインデックス
     },
+    // 🔹 案件金額
     amount: {
-      // 案件金額
       type: Number,
       required: true,
     },
+    // 🔹 案件のステータス
     status: {
-      // 案件のステータス
       type: String,
       enum: ["見込み", "提案中", "交渉中", "契約済", "失注"],
       default: "見込み",
+      index: true, // ステータスで検索することがあるためインデックス
     },
+    // 🔹 担当者との紐づけ（Firebase UID）
     assignedUserId: {
-      // ✅ 担当者との紐づけ
-      type: String, // Firebase UIDを保存
+      type: String,
       required: true,
+      index: true, // 担当者ごとに案件を検索する場合が多いためインデックス
     },
+    // 🔹 メモ（任意）
     notes: {
-      // メモ
       type: String,
       trim: true,
     },
-    // ✅ dueDateフィールドを追加
+    // 🔹 案件の期限日（任意）
     dueDate: {
       type: Date,
-      required: false, // 必須ではないとします
+      required: false,
     },
   },
   {
-    timestamps: true, // ✅ 作成日時と更新日時を自動で記録
+    // 🔹 timestamps: 作成日時(createdAt)と更新日時(updatedAt)を自動追加
+    timestamps: true,
   }
 );
 
-// Mongooseモデルをエクスポート
+// 🔹 Salesモデルをエクスポート
 module.exports = mongoose.model("Sales", salesSchema);

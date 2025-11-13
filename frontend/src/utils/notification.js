@@ -3,7 +3,13 @@
 import { authorizedRequest } from "../services/authService";
 
 /**
- * @desc ユーザーの通知一覧を取得
+ * @desc ユーザーの通知一覧を取得する関数
+ *
+ * 処理の流れ:
+ * 1. authorizedRequest を使って認証付きGETリクエストで /notifications へアクセス
+ * 2. 成功した場合、通知リストを返却
+ * 3. 失敗した場合、エラーをコンソール出力してthrow
+ *
  * @returns {Promise<Array>} 通知の配列
  */
 export const getNotifications = async () => {
@@ -18,9 +24,15 @@ export const getNotifications = async () => {
 };
 
 /**
- * @desc 特定の通知を既読としてマーク
- * @param {string} id - 通知のID
- * @returns {Promise<Object>} 成功メッセージ
+ * @desc 特定の通知を既読としてマークする関数
+ *
+ * 処理の流れ:
+ * 1. authorizedRequest を使って PATCH リクエストで /notifications/:id/read へアクセス
+ * 2. 成功した場合、既読処理成功のレスポンスを返却
+ * 3. 失敗した場合、エラーをコンソール出力してthrow
+ *
+ * @param {string} id - 対象通知のID
+ * @returns {Promise<Object>} 成功レスポンス
  */
 export const markNotificationAsRead = async (id) => {
   try {

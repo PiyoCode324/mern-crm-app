@@ -1,23 +1,33 @@
 // src/components/TaskDetails.jsx
+// タスク詳細を表示するコンポーネント
+// タスクのタイトル・説明・ステータス・担当者・期日・顧客・案件を表示
+// さらに ActivityTimeline コンポーネントを組み込み、タスクに紐づくアクティビティを表示
+// refreshKey を渡すことで ActivityTimeline の再描画を制御可能
 
 import React from "react";
 import ActivityTimeline from "./ActivityTimeline";
 
 // ✅ 追加: refreshKeyプロップを受け取る
 const TaskDetails = ({
-  task,
-  users,
-  customers,
-  sales,
-  onClose,
-  refreshKey,
+  task, // タスクオブジェクト
+  users, // ユーザーリスト
+  customers, // 顧客リスト
+  sales, // 案件リスト
+  onClose, // 閉じるボタン押下時のコールバック
+  refreshKey, // ActivityTimeline の再描画用キー
 }) => {
-  if (!task) return null;
+  if (!task) return null; // taskが未定義の場合は何も表示しない
 
+  // タスクの担当者オブジェクトを取得
   const assignedUser = users.find((u) => u.uid === task.assignedTo);
+
+  // タスクの顧客オブジェクトを取得
   const customer = customers.find((c) => c._id === task.customer);
+
+  // タスクの案件オブジェクトを取得
   const sale = sales.find((s) => s._id === task.sales);
 
+  // ステータスコードを日本語に変換する関数
   const getStatusText = (status) => {
     switch (status) {
       case "todo":
@@ -31,6 +41,7 @@ const TaskDetails = ({
     }
   };
 
+  // 日付を「YYYY年MM月DD日」形式に変換
   const formatDueDate = (date) => {
     if (!date) return "未定";
     const d = new Date(date);
@@ -39,7 +50,10 @@ const TaskDetails = ({
 
   return (
     <div className="p-6">
+      {/* タスクタイトル */}
       <h2 className="text-2xl font-bold mb-4">{task.title}</h2>
+
+      {/* タスク詳細情報 */}
       <div className="space-y-2 text-gray-700">
         <div>
           <span className="font-semibold">説明:</span>
@@ -67,15 +81,17 @@ const TaskDetails = ({
         </div>
       </div>
 
+      {/* タスクのアクティビティタイムライン */}
       <div className="mt-8">
         <ActivityTimeline
           type="task"
           targetId={task._id}
-          // ✅ 修正: task._id ではなく、新しいrefreshKeyを渡す
+          // ✅ refreshKey を渡すことでタイムラインを再描画
           refreshKey={refreshKey}
         />
       </div>
 
+      {/* 閉じるボタン */}
       <div className="mt-6 flex justify-end">
         <button
           onClick={onClose}

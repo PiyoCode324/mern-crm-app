@@ -9,7 +9,18 @@ const Activity = require("../models/Activity");
 const { addNotification } = require("./notificationController");
 
 /**
- * @desc ユーザーアクティビティを記録
+ * @desc ユーザーアクティビティを記録するヘルパー関数
+ * @param {String} userId - アクションを実行したユーザーID
+ * @param {String} action - アクションの種類（例: created, updated, deleted）
+ * @param {String} taskId - 対象のタスクID
+ * @param {String} description - アクティビティの説明文
+ * @param {String} customerId - 関連する顧客ID（任意）
+ * @param {String} salesId - 関連する案件ID（任意）
+ * @param {String} assignedUserId - タスクの担当者ID（任意）
+ * @param {Object} before - 更新前のタスクデータ（任意）
+ * @param {Object} after - 更新後のタスクデータ（任意）
+ * @param {String} targetId - 対象ID（省略時はtaskIdを使用）
+ * @param {Date} timestamp - アクティビティ作成日時（デフォルト: 現在時刻）
  */
 const recordActivity = async (
   userId,
@@ -49,12 +60,15 @@ const recordActivity = async (
 
 /**
  * @desc 新規タスク作成
+ * @route POST /api/tasks
+ * @access Private
  */
 exports.createTask = asyncHandler(async (req, res) => {
   console.log("📝 createTask start", req.body);
   const { title, description, assignedTo, customer, sales, dueDate } = req.body;
   const createdBy = req.user.uid;
 
+  // 新しいタスクオブジェクト作成
   const newTask = new Task({
     title,
     description,
@@ -65,20 +79,24 @@ exports.createTask = asyncHandler(async (req, res) => {
     dueDate,
   });
 
+  // タスクをDBに保存
   const task = await newTask.save();
   console.log("✅ Task saved:", task._id);
 
+  // 関連情報取得（通知やアクティビティ用）
   const createdByUser = await User.findOne({ uid: createdBy });
   const assignedUser = await User.findOne({ uid: assignedTo });
   const customerObj = await Customer.findById(customer);
   const salesObj = await Sales.findById(sales);
 
+  // 通知メッセージ作成
   const message = `${createdByUser?.displayName || "不明なユーザー"}が、顧客「${
     customerObj?.name || "不明"
   }」の案件「${salesObj?.dealName || "不明"}」に関する新しいタスク「${
     task.title
   }」を${assignedUser?.displayName || "不明なユーザー"}に割り当てました。`;
 
+  // 担当者向け通知
   console.log("🔔 Adding notification for assigned user");
   await addNotification({
     message,
@@ -86,6 +104,7 @@ exports.createTask = asyncHandler(async (req, res) => {
     relatedTask: task._id,
   });
 
+  // 作成者と担当者が異なる場合、作成者にも通知
   if (createdBy !== assignedTo) {
     console.log("🔔 Adding notification for creator");
     await addNotification({
@@ -97,7 +116,7 @@ exports.createTask = asyncHandler(async (req, res) => {
     });
   }
 
-  // ✅ アクティビティ記録
+  // アクティビティ記録
   await recordActivity(
     createdBy,
     "created",
@@ -117,6 +136,8 @@ exports.createTask = asyncHandler(async (req, res) => {
 
 /**
  * @desc タスク更新
+ * @route PATCH /api/tasks/:id
+ * @access Private
  */
 exports.updateTask = asyncHandler(async (req, res) => {
   console.log("📝 updateTask start", req.body);
@@ -129,9 +150,10 @@ exports.updateTask = asyncHandler(async (req, res) => {
     return res.status(404).json({ msg: "タスクが見つかりません" });
   }
 
-  const beforeTask = task.toObject();
-  const updatedFields = {};
+  const beforeTask = task.toObject(); // 更新前のタスクデータ
+  const updatedFields = {}; // 更新されたフィールドを保持
 
+  // 更新フィールドの判定
   if (title !== undefined && title !== task.title) updatedFields.title = title;
   if (description !== undefined && description !== task.description)
     updatedFields.description = description;
@@ -149,6 +171,7 @@ exports.updateTask = asyncHandler(async (req, res) => {
   )
     updatedFields.dueDate = dueDate;
 
+  // DB更新
   const updatedTask = await Task.findByIdAndUpdate(
     req.params.id,
     { ...updatedFields },
@@ -157,15 +180,17 @@ exports.updateTask = asyncHandler(async (req, res) => {
 
   console.log("✅ Task updated:", updatedTask._id);
 
-  const activityDescriptions = [];
+  const activityDescriptions = []; // アクティビティ用の変更内容
   const user = await User.findOne({ uid: req.user.uid });
 
+  // ステータス変更
   if (updatedFields.status) {
     activityDescriptions.push(
       `ステータスを「${beforeTask.status}」から「${updatedTask.status}」に変更`
     );
   }
 
+  // 担当者変更
   if (updatedFields.assignedTo) {
     const beforeUser = await User.findOne({ uid: beforeTask.assignedTo });
     const afterUser = await User.findOne({ uid: updatedTask.assignedTo });
@@ -176,6 +201,7 @@ exports.updateTask = asyncHandler(async (req, res) => {
     );
   }
 
+  // 顧客変更
   if (updatedFields.customer) {
     const beforeCustomer = await Customer.findById(beforeTask.customer);
     const afterCustomer = await Customer.findById(updatedTask.customer);
@@ -186,6 +212,7 @@ exports.updateTask = asyncHandler(async (req, res) => {
     );
   }
 
+  // 案件変更
   if (updatedFields.sales) {
     const beforeSales = await Sales.findById(beforeTask.sales);
     const afterSales = await Sales.findById(updatedTask.sales);
@@ -196,6 +223,7 @@ exports.updateTask = asyncHandler(async (req, res) => {
     );
   }
 
+  // タイトル・説明・期日変更
   if (updatedFields.title)
     activityDescriptions.push(
       `タイトルを「${beforeTask.title}」から「${updatedTask.title}」に変更`
@@ -209,6 +237,7 @@ exports.updateTask = asyncHandler(async (req, res) => {
     activityDescriptions.push(`期日を「${oldDate}」から「${newDate}」に変更`);
   }
 
+  // アクティビティ記録
   if (activityDescriptions.length > 0) {
     await recordActivity(
       req.user.uid,
@@ -230,6 +259,8 @@ exports.updateTask = asyncHandler(async (req, res) => {
 
 /**
  * @desc タスク削除
+ * @route DELETE /api/tasks/:id
+ * @access Private
  */
 exports.deleteTask = asyncHandler(async (req, res) => {
   console.log("📝 deleteTask start:", req.params.id);
@@ -241,6 +272,7 @@ exports.deleteTask = asyncHandler(async (req, res) => {
 
   const user = await User.findOne({ uid: req.user.uid });
 
+  // 作成者と担当者に通知
   const relatedUsers = new Set([task.createdBy, task.assignedTo]);
   const customerObj = await Customer.findById(task.customer);
   const salesObj = await Sales.findById(task.sales);
@@ -258,6 +290,7 @@ exports.deleteTask = asyncHandler(async (req, res) => {
     });
   }
 
+  // アクティビティ記録
   await recordActivity(
     req.user.uid,
     "deleted",
@@ -271,6 +304,7 @@ exports.deleteTask = asyncHandler(async (req, res) => {
     task._id // targetId を設定
   );
 
+  // DBから削除
   await Task.findByIdAndDelete(req.params.id);
   console.log("✅ deleteTask success");
   res.status(200).json({ message: "タスクを削除しました。" });
@@ -278,6 +312,8 @@ exports.deleteTask = asyncHandler(async (req, res) => {
 
 /**
  * @desc 全タスク取得（自分が作成 or 自分に割り当て）
+ * @route GET /api/tasks
+ * @access Private
  */
 exports.getAllTasks = asyncHandler(async (req, res) => {
   console.log("📝 getAllTasks start");
@@ -291,6 +327,8 @@ exports.getAllTasks = asyncHandler(async (req, res) => {
 
 /**
  * @desc 顧客別タスク取得
+ * @route GET /api/tasks/customer/:id
+ * @access Private
  */
 exports.getTasksByCustomer = asyncHandler(async (req, res) => {
   console.log("📝 getTasksByCustomer start:", req.params.id);
@@ -305,6 +343,8 @@ exports.getTasksByCustomer = asyncHandler(async (req, res) => {
 
 /**
  * @desc タスク詳細取得（アクティビティ込み）
+ * @route GET /api/tasks/:id
+ * @access Private
  */
 exports.getTaskById = asyncHandler(async (req, res) => {
   console.log("📝 getTaskById start:", req.params.id);
@@ -320,6 +360,7 @@ exports.getTaskById = asyncHandler(async (req, res) => {
       return res.status(404).json({ msg: "タスクが見つかりません" });
     }
 
+    // タスクに関連するアクティビティを取得
     const activities = await Activity.find({ taskId })
       .sort({ updatedAt: -1 })
       .populate("userId", "displayName")

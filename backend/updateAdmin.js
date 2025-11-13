@@ -1,14 +1,20 @@
 // backend/updateAdmin.js
 
+// Firebase Admin SDKをインポート
 const admin = require("firebase-admin");
+// 環境変数読み込み用
 const dotenv = require("dotenv");
-const mongoose = require("mongoose"); // ✅ Mongooseをインポート
-const User = require("./models/User"); // ✅ Userモデルをインポート
+// MongoDB接続用Mongoose
+const mongoose = require("mongoose");
+// ユーザーモデルをインポート（MongoDB上のユーザー情報操作用）
+const User = require("./models/User");
 
-// .envファイルを読み込む
+// .envファイルの読み込み
 dotenv.config();
 
-// ✅ MongoDBに接続
+// ============================
+// MongoDB接続
+// ============================
 mongoose
   .connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
@@ -17,7 +23,10 @@ mongoose
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// 環境変数からBase64キーを読み込み、デコードする
+// ============================
+// Firebase Admin SDK初期化
+// ============================
+// 環境変数からBase64でエンコードされたサービスアカウントキーを取得
 const serviceAccountBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_BASE64;
 if (!serviceAccountBase64) {
   console.error(
@@ -25,11 +34,13 @@ if (!serviceAccountBase64) {
   );
   process.exit(1);
 }
+
+// Base64をデコードしてJSONに変換
 const serviceAccount = JSON.parse(
   Buffer.from(serviceAccountBase64, "base64").toString("utf-8")
 );
 
-// Firebase Admin SDKの初期化
+// Firebase Admin SDKを初期化（多重初期化を防ぐ）
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
@@ -37,19 +48,23 @@ if (!admin.apps.length) {
   console.log("✅ Firebase Admin SDK initialized");
 }
 
-// ユーザーのUIDをここに貼り付け
+// ============================
+// 管理者にしたいユーザーのUIDを設定
+// ============================
 const targetUid = "WzwMXMJFA0NuMsPjKOmkzzPgeFx2";
 
+// ============================
+// 関数: FirebaseとMongoDB両方でユーザーをadminに設定
+// ============================
 async function setAdminClaimAndRole() {
-  // ✅ 関数名を変更
   try {
-    // Firebaseのカスタムクレームを更新
+    // Firebaseにカスタムクレームとしてrole: "admin"を設定
     await admin.auth().setCustomUserClaims(targetUid, { role: "admin" });
     console.log(
       `✅ ユーザー ${targetUid} のカスタムクレームを 'admin' に設定しました。`
     );
 
-    // ✅ MongoDBのユーザー役割を更新
+    // MongoDB側のユーザー役割も更新
     const user = await User.findOne({ uid: targetUid });
     if (user) {
       user.role = "admin";
@@ -63,8 +78,10 @@ async function setAdminClaimAndRole() {
   } catch (error) {
     console.error("❌ 役割の更新に失敗しました:", error);
   } finally {
-    mongoose.connection.close(); // ✅ 処理完了後に接続を閉じる
+    // 処理終了後にMongoDB接続を閉じる
+    mongoose.connection.close();
   }
 }
 
-setAdminClaimAndRole(); // ✅ 更新された関数を呼び出す
+// 関数を呼び出して処理実行
+setAdminClaimAndRole();
